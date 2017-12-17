@@ -1,0 +1,6 @@
+set from = "USERNAME@gmail.com"
+set realname = "UC Davis Archery"
+set smtp_url = "smtp://USERNAME@smtp.gmail.com:587/"
+set smtp_pass = "PASSWORD"
+set move = no
+set crypt_use_gpgme=no
