@@ -2,7 +2,7 @@
 
 LOG=sent.tsv
 touch "$LOG"
-diff -w "$LOG" ../email-addresses.tsv \
+diff -w "$LOG" email-addresses.tsv \
 | grep -P '^>' \
 | perl -pe 's/^> //' \
 | while read -r line; do
