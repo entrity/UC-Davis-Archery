@@ -8,15 +8,18 @@
 
 MUTTRC="$1"
 ORG_NAME="$2"
-TO_ADDR="$3"
+TO_ADDR="${@:3}"
+
+# echo $MUTTRC
+# echo "(Organization Name)/$ORG_NAME"
+# echo TO_ADDR/${TO_ADDR[@]}
 
 sed \
   -e "s/(Organization Name)/$ORG_NAME/g" \
-  -e "s/TO_ADDR/$TO_ADDR/g" \
-  draft-1.1.html | \
+  -e "s/TO_ADDR/${TO_ADDR[@]}/g" \
+  draft-1.2.html | \
 mutt \
 -F "$MUTTRC" \
 -e 'set content_type=text/html' \
--s 'Archery session from UC Davis' \
-"$TO_ADDR"
-echo $?
+-s 'Group Lesson with UC Davis Archery Team' \
+-- $(sed "s/\t/,/g" <<< "${TO_ADDR[@]}")
