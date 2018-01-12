@@ -8,6 +8,7 @@
 
 MUTTRC="$1"
 ORG_NAME="$2"
+ORG_NAME=$(sed -e "s/\&\#39\;/'/g" <<< "$ORG_NAME") # replace HTML char code for apostrophe
 TO_ADDR="${@:3}"
 
 # echo $MUTTRC
