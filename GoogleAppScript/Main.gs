@@ -1,16 +1,24 @@
-LOGFILE_ID = '1Ce2nLzrKyiUCV9hNZUVM5pgJbUYpvizoWQFM7oMaDDg';
+LOGFILE_ID = '1wIxpjS1rgIrc0uBQqoC-04c_f-izMClRWUSDazsYm2M';
 LOG_ROW = null;
 var NOW = new Date();
-var SUNDAY = new Date(NOW.setDate(NOW.getDate() + 4));
+var SUNDAY = getSunday();
 
 // Handle trigger
 function main() {
   log(1, new Date())
+  // Check for scheduled lessons in the next 7 days
+  var dates = getScheduledDates(NOW);
+  if (dates.length == 0) {
+    log(2, '(not scheduled)');
+    return;
+  } else {
+    log(2, dates2Str(dates)); 
+  }
   // Create form
-  var form = createForm();
+  var form = createForm(dates);
   var formUrl = form.getPublishedUrl();
   // Send email
-  sendEmail(formUrl);
+  sendEmail(formUrl, dates);
   // output
   out = ContentService.createTextOutput("Completed this tweedle dee");
   return out;
@@ -18,5 +26,4 @@ function main() {
 
 // TODO: 
 // - implement getEmailRecipients()
-// - implement facebook posting
 // - implement Friday-night spreadsheet creation

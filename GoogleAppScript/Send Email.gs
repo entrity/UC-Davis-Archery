@@ -6,25 +6,21 @@ function getEmailRecipients() {
 }
 
 // Send emails
-function sendEmail(formUrl) {
+function sendEmail(formUrl, dates) {
   var recipients = getEmailRecipients();
   var imgBlob = UrlFetchApp
                            .fetch(EMAIL_IMG_URL)
                            .getBlob()
                            .setName("imgBlob");
-  var htmlBody = "<p>The sign-up form for this week's UC Davis Archery lesson & club shoot has been posted.</p>" +
-    "<p>Please complete the form here: <a href='" + formUrl +  "'>" + formUrl + "</a></p>" +
-    "<img src='cid:genericImg'><br>";
-  var subject = Utilities.formatString("Lesson Sign-Up %d-%02d-%02d", SUNDAY.getYear(), SUNDAY.getMonth(), SUNDAY.getDate());
-//  bcc: recipients,
+  var htmlBody = "<p>The sign-up form for this week's UC Davis Archery lesson(s) / club shoot(s) has been posted.</p>" +
+    "<p>Please complete the form here: <a href='" + formUrl +  "'>" + formUrl + "</a></p>";
+  var datesString = dates2Str(dates, ' & ');
+  var subject = Utilities.formatString("Lesson Sign-Up %s", datesString);
   var message = {
-    to: 'junkmailbocks@netscape.net',
+    to: 'ucdaggiearchery@gmail.com',
     bcc: recipients.join(', '),
     subject: subject,
     htmlBody: htmlBody,
-    inlineImages: {
-      genericImg: imgBlob,
-    }
   };
   MailApp.sendEmail(message);
 }

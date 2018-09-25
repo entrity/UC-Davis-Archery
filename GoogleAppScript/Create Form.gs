@@ -1,4 +1,4 @@
-function createForm() {
+function createForm(dates) {
   var title = Utilities.formatString('%04d-%02d-%02d Archery Lesson', SUNDAY.getYear(), SUNDAY.getMonth(), SUNDAY.getDate())
   var form = FormApp.create(title)
   var item;
@@ -27,6 +27,10 @@ function createForm() {
   // Is there any reason you can only attend a particular lesson (am/pm)?
   form.addParagraphTextItem().setTitle('Is there a reason you can only attend a certain Lesson Session?').setRequired(false)
     .setHelpText('There will still be a morning and afternoon session! If you do not have any special reason (i.e. religious, work commitment, friend group, etc...), then we will place you in a session. If you do, state which session you want. More sleep does not count as a valid reason. :P')
+  if (dates.length > 1) {
+    item = form.addCheckboxItem().setTitle('Which day(s) would you like to attend? (We may only be able to accommodate you for a single day because there is often an overabundance of registrations in Fall quarter.)').setRequired(true);
+    item.setChoices(dates2Choices(item, dates));
+  }
   // Are you a paid member?
   item = form.addMultipleChoiceItem().setTitle('Are you a paid member?').setRequired(true)
   item.setHelpText('Paid members should sign up for our class on B2H.  Please see the link in the pinned post on Facebook for directions.')
@@ -74,4 +78,12 @@ function createForm() {
   log(4, form.getEditUrl());
   // Return
   return form;
+}
+
+function dates2Choices(item, dates) {
+  var choices = [];
+  for (var i in dates) {
+    choices.push(item.createChoice(date2Str(dates[i])));
+  }
+  return choices;
 }
