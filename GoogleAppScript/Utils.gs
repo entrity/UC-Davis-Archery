@@ -1,10 +1,19 @@
+COL_TIMESTAMP = 1;
+COL_DATESTRING = 2;
+COL_FORM_URL = 3;
+COL_FORM_EDIT_URL = 4;
+COL_EMAIL_STATUS = 5;
+
 // Get logging spreadsheet
-function getLog() {
+function getLog(row, col) {
   var ss = SpreadsheetApp.openById(LOGFILE_ID)
   if (LOG_ROW == null) {
-    LOG_ROW = ss.getActiveSheet().getLastRow() + 1
+    LOG_ROW = ss.getActiveSheet().getLastRow() + 1;
   }
-  return ss
+  if (row != undefined && col != undefined)
+    return ss.getActiveSheet().getRange(LOG_ROW + row, col, 1, 1).getValue();
+  else
+    return ss
 }
 
 function log(col, val) {
@@ -31,14 +40,12 @@ function dates2Str(dates, delimiter) {
   return out.join(delimiter);
 }
 
-function getScheduledDates(now) {
+function getScheduledDates(from, until) {
   var dates = []
-  var later = new Date(now);
-  later.setDate(later.getDate() + 7); // Look for scheduled lessons in the next **7** days
   for (i in SCHEDULED_TRIPLETS) {
     var trip = SCHEDULED_TRIPLETS[i];
     var candidate = new Date(trip[0], trip[1]-1, trip[2]);
-    if (candidate.valueOf() > now.valueOf() && candidate.valueOf() < later.valueOf())
+    if (candidate.valueOf() > from.valueOf() && candidate.valueOf() < until.valueOf())
         dates.push(candidate);
   }
   return dates;

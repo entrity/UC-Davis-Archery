@@ -1,3 +1,7 @@
+/* Create new form.
+  Return reference to form.
+  Log form url (col 3) and edit url (col 4)
+*/
 function createForm(dates) {
   var title = Utilities.formatString('%04d-%02d-%02d Archery Lesson', SUNDAY.getYear(), SUNDAY.getMonth(), SUNDAY.getDate())
   var form = FormApp.create(title)
@@ -74,8 +78,8 @@ function createForm(dates) {
   // Output
   Logger.log('Published URL: ' + form.getPublishedUrl());
   Logger.log('Editor URL: ' + form.getEditUrl());
-  log(3, form.getPublishedUrl());
-  log(4, form.getEditUrl());
+  log(COL_FORM_URL, form.getPublishedUrl());
+  log(COL_FORM_EDIT_URL, form.getEditUrl());
   // Return
   return form;
 }
@@ -86,4 +90,23 @@ function dates2Choices(item, dates) {
     choices.push(item.createChoice(date2Str(dates[i])));
   }
   return choices;
+}
+
+/* Create form for scheduled lessons to occur in the next 7 days */
+function createFormCronJob() {
+  log(COL_TIMESTAMP, new Date())
+  // Check for scheduled lessons from Wed to Wed
+  var from = new Date();
+  from.setDate(from.getDate() - from.getDay() + 3);
+  var until = new Date(from);
+  until.setDate(from.getDate() + 7);
+  var dates = getScheduledDates(from, until);
+  if (dates.length == 0) {
+    log(COL_DATESTRING, '(not scheduled)');
+    return;
+  } else {
+    log(COL_DATESTRING, dates2Str(dates));
+  }
+  // Create form
+  createForm(dates);
 }

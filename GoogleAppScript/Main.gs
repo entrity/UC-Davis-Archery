@@ -5,14 +5,14 @@ var SUNDAY = getSunday();
 
 // Handle trigger
 function main() {
-  log(1, new Date())
+  log(COL_TIMESTAMP, new Date())
   // Check for scheduled lessons in the next 7 days
   var dates = getScheduledDates(NOW);
   if (dates.length == 0) {
-    log(2, '(not scheduled)');
+    log(COL_DATESTRING, '(not scheduled)');
     return;
   } else {
-    log(2, dates2Str(dates)); 
+    log(COL_DATESTRING, dates2Str(dates)); 
   }
   // Create form
   var form = createForm(dates);
