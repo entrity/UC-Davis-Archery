@@ -1,11 +1,19 @@
+CLASS_CAPACITY = 1;
+
 /* Create new form.
   Return reference to form.
   Log form url (col 3) and edit url (col 4)
 */
 function createForm(dates) {
-  var title = Utilities.formatString('%04d-%02d-%02d Archery Lesson', SUNDAY.getYear(), SUNDAY.getMonth(), SUNDAY.getDate())
-  var form = FormApp.create(title)
+  var title = Utilities.formatString('Archery Lesson %s', dates2Str(dates, ', '));
+  var form = FormApp.create(title);
+  form.setTitle(title); // necessary for use of getTitle()
   var item;
+  form.setLimitOneResponsePerUser(true);
+  form.setShowLinkToRespondAgain(false);
+  form.setAllowResponseEdits(true);
+  form.setCollectEmail(true);
+  setDescription(form, dates);
   // First & Last Name
   form.addTextItem().setTitle('First & Last Name').setRequired(true)
   // Facebook Name
@@ -28,13 +36,13 @@ function createForm(dates) {
       item.createChoice('Large'),
       item.createChoice('X-Large'),
   ]);
+  // Which session would you like to attend?
+  item = form.addMultipleChoiceItem().setTitle('Which session would you like to attend?').setRequired(true);
+  item.setHelpText('Options will disappear as sessions become full.');
+  item.setChoices(dates2Choices(item, dates));
   // Is there any reason you can only attend a particular lesson (am/pm)?
   form.addParagraphTextItem().setTitle('Is there a reason you can only attend a certain Lesson Session?').setRequired(false)
     .setHelpText('There will still be a morning and afternoon session! If you do not have any special reason (i.e. religious, work commitment, friend group, etc...), then we will place you in a session. If you do, state which session you want. More sleep does not count as a valid reason. :P')
-  if (dates.length > 1) {
-    item = form.addCheckboxItem().setTitle('Which day(s) would you like to attend? (We may only be able to accommodate you for a single day because there is often an overabundance of registrations in Fall quarter.)').setRequired(true);
-    item.setChoices(dates2Choices(item, dates));
-  }
   // Are you a paid member?
   item = form.addMultipleChoiceItem().setTitle('Are you a paid member?').setRequired(true)
   item.setHelpText('Paid members should sign up for our class on B2H.  Please see the link in the pinned post on Facebook for directions.')
@@ -75,21 +83,106 @@ function createForm(dates) {
   item.setChoices([
     item.createChoice('Yes'),
   ]);
+  // Returning renters: would you like to use a compound bow?
+  item = form.addCheckboxItem().setTitle('Returning renters: would you like to use a compound bow?').setRequired(false)
+  item.setHelpText('Supplies are limited. You must have attended at least 3 lessons to use this equipment.');
+  item.setChoices([
+    item.createChoice('Yes'),
+  ]);
   // Output
+  Logger.log('Published URL: ' + form.shortenFormUrl(form.getPublishedUrl()));
   Logger.log('Published URL: ' + form.getPublishedUrl());
   Logger.log('Editor URL: ' + form.getEditUrl());
-  log(COL_FORM_URL, form.getPublishedUrl());
+  log(COL_FORM_URL, form.shortenFormUrl(form.getPublishedUrl()));
   log(COL_FORM_EDIT_URL, form.getEditUrl());
+  // Remove old submit triggers
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i in triggers) {
+    if (triggers[i].getTriggerSource() == ScriptApp.TriggerSource.FORMS)
+      ScriptApp.deleteTrigger(triggers[i]);
+  }
+  // Create submit trigger
+  ScriptApp.newTrigger('onFormSubmitted')
+    .forForm(form).onFormSubmit().create();
   // Return
   return form;
 }
 
-function dates2Choices(item, dates) {
-  var choices = [];
-  for (var i in dates) {
-    choices.push(item.createChoice(date2Str(dates[i])));
+function getForm() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var form;
+  for (var i in triggers) {
+    if (triggers[i].getTriggerSource() == ScriptApp.TriggerSource.FORMS)
+      form = FormApp.openById(triggers[i].getTriggerSourceId());
   }
-  return choices;
+  return form;
+}
+    
+function onFormSubmitted(data) {
+  var form = getForm();
+  updateSessionSeats(form);
+}
+
+function setDescription(form) {
+  form.setDescription(
+    "* The fee for students who are not members of the club is $10."
+    + "\n\n* If you wish to get a membership, please sign-up here (https://goo.gl/forms/z9KZ2wm3z4Vy1Yjn2) The fee is $40 for the quarter. Payment can be made with Cash, Check, or Paypal using \"Send money to family and friends\" to \"ucdarcherytreasurer@gmail.com.\" (no cards!)"
+    + "\n* Members! Don’t forget to sign up for B2H! (https://myrecreation.ucdavis.edu/store/index.aspx…)"
+    + "\n\n* We will meet at Howard Field, just north of the MU Parking Structure and West of Toomey Track."
+    + "\n* Note: If you are in the first session, we need your help with setting up the field. If you are in the second session, we will need your help with taking down the field."
+    + "\n* There is free parking at the MU parking structure on weekends, unless there is a special event."
+  );
+}
+
+function getResponseValue(formResponse, title) {
+  var itemResponses = formResponse.getItemResponses();
+  for (var j = 0; j < itemResponses.length; j++) {
+    var itemResponse = itemResponses[j];
+    if (itemResponse.getItem().getTitle() == title)
+      return itemResponse.getResponse();
+  }
+}
+
+function updateSessionSeats(form) {
+  var TITLE    = 'Which session would you like to attend?'; 
+  var sessions = dates2Sessions(datesFromFormTitle(form.getTitle()));
+  var seats    = {}
+  for (var i in sessions)
+    seats[sessions[i]] = CLASS_CAPACITY;
+  // Iterate form responses
+  var formResponses = form.getResponses();
+  for (var i = 0; i < formResponses.length; i++) {
+    var formResponse = formResponses[i];
+    var itemResponses = formResponse.getItemResponses();
+    for (var j = 0; j < itemResponses.length; j++) {
+      var itemResponse = itemResponses[j];
+      var title = itemResponse.getItem().getTitle();
+      if (title == TITLE) {
+        var session = itemResponse.getResponse().replace(/\s*\(.*\).*/,''); 
+        seats[session] = parseInt(seats[session]) - 1;
+      }
+    }
+  }
+  // Update choices
+  var newSessions = [];
+  for (var i in sessions) {
+    var n = parseInt(seats[sessions[i]]);
+    if (n > 0)
+      newSessions.push(sessions[i] + ' ('+n.toString()+' openings)');
+  }
+  // Disable form if indicated
+  if (newSessions.length == 0)
+    form.setAcceptingResponses(false);
+  else {
+    // Update form
+    var items = form.getItems(FormApp.ItemType.MULTIPLE_CHOICE);
+    for (var i in items) {
+      var item = items[i];
+      if (item.getTitle() == TITLE)
+        item.asMultipleChoiceItem().setChoiceValues(newSessions);
+    }
+  }
+  return [seats, sessions];
 }
 
 /* Create form for scheduled lessons to occur in the next 7 days */
@@ -97,16 +190,21 @@ function createFormCronJob() {
   log(COL_TIMESTAMP, new Date())
   // Check for scheduled lessons from Wed to Wed
   var from = new Date();
-  from.setDate(from.getDate() - from.getDay() + 3);
+  from.setDate(from.getDate() - from.getDay() + 3); // Get Wednesday of current week
   var until = new Date(from);
-  until.setDate(from.getDate() + 7);
+  until.setDate(from.getDate() + 7); // Get a week from 'from' date
   var dates = getScheduledDates(from, until);
   if (dates.length == 0) {
     log(COL_DATESTRING, '(not scheduled)');
     return;
   } else {
-    log(COL_DATESTRING, dates2Str(dates));
+    log(COL_DATESTRING, dates2Str(dates, DATES_DELIMITER));
   }
   // Create form
   createForm(dates);
+}
+
+function closeFormCronJob() {
+  var form = getForm();
+  form.setAcceptingResponses(false);
 }

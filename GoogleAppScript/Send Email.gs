@@ -13,10 +13,10 @@ function sendEmail(formUrl, datesString) {
                            .fetch(EMAIL_IMG_URL)
                            .getBlob()
                            .setName("imgBlob");
-  var htmlBody = "<p><small><a href=\"\">[Unsubscribe]</a></small></p>" +
-    "<p>The sign-up form for this week's UC Davis Archery lesson(s) / club shoot(s) has been posted.</p>" +
+  var htmlBody = "<p style='text-align:center'><a href=\"https://lists.ucdavis.edu/sympa/signoff/archery-club\">[Unsubscribe]</a></p>" +
+    "<p>" + boilerplate('<br>') + "</p>" +
     "<p>Please complete the form here: <a href='" + formUrl +  "'>" + formUrl + "</a></p>" +
-    "<p><small><a href=\"\">[Unsubscribe]</a></small></p>";
+    "<p style='text-align:center'><a href=\"https://lists.ucdavis.edu/sympa/signoff/archery-club\">[Unsubscribe]</a></p>";
   var subject = Utilities.formatString("Lesson Sign-Up %s", datesString);
   var message = {
     to: LISTSERV,
@@ -27,8 +27,14 @@ function sendEmail(formUrl, datesString) {
 }
 
 function sendEmailCronJob() {
-  var datesString = getLog(-1, COL_DATESTRING);
-  var formUrl = getLog(-1, COL_FORM_URL);
-  sendEmail(formUrl, datesString);
-  log(COL_EMAIL_STATUS, 'email sent');
+  var curStatus = getLog(-1, COL_EMAIL_STATUS);
+  if (curStatus != 'email sent') {
+    var datesString = getLog(-1, COL_DATESTRING);
+    var formUrl = getLog(-1, COL_FORM_URL);
+    sendEmail(formUrl, datesString);
+    log(COL_EMAIL_STATUS, 'email sent', -1);
+    Logger.log('email send attempted');
+  } else {
+    Logger.log('No email send attempted. Already sent.');
+  }
 }

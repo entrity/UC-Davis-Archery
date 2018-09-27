@@ -4,6 +4,14 @@ COL_FORM_URL = 3;
 COL_FORM_EDIT_URL = 4;
 COL_EMAIL_STATUS = 5;
 
+DATES_DELIMITER = ' & ';
+
+LOGFILE_ID = '1wIxpjS1rgIrc0uBQqoC-04c_f-izMClRWUSDazsYm2M';
+LOG_ROW = null;
+
+var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 // Get logging spreadsheet
 function getLog(row, col) {
   var ss = SpreadsheetApp.openById(LOGFILE_ID)
@@ -16,17 +24,10 @@ function getLog(row, col) {
     return ss
 }
 
-function log(col, val) {
-  getLog().getActiveSheet().getRange(LOG_ROW, col, 1, 1).setValue(val)
-}
-
-function getSunday() {  
-  var SUNDAY = new Date(NOW);
-  for (var i = 1; i < 8; i++) {
-    SUNDAY.setDate(SUNDAY.getDate() + 1);
-    if (SUNDAY.getDay() == 0)
-    return SUNDAY
-  }
+function log(col, val, optionalRowOffset) {
+  var sheet = getLog();
+  var row = LOG_ROW + (optionalRowOffset||0);
+  sheet.getActiveSheet().getRange(row, col, 1, 1).setValue(val)
 }
 
 function date2Str(date) {
