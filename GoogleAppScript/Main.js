@@ -1,38 +1,67 @@
 /*
 Usage:
-Set up a trigger for each of the cron job functions.
-
-* createFormCronJob
-* sendEmailCronJob
-
+Set up a time-based trigger for each of the cron job functions.
 */
+
+CLASS_CAPACITY            = 36;
+MEMBERSHIP_FORM_URL       = 'https://goo.gl/forms/RJw3HKbUVHAArwQ73';
+LOGFILE_ID                = '1wIxpjS1rgIrc0uBQqoC-04c_f-izMClRWUSDazsYm2M';
+MEMBERSHIP_FORM_ID        = '1z7FNWHneU1jLYVhXcMR_7TcHbvAL_pKER-NwIq7qS-g';
+MEMBERSHIP_SPREADSHEET_ID = '1oXwQN1Bf22RCARJ8Uz5RHxSb_-J8g8S86UAhNZLbhaU';
+ATTENDANCE_SPREADSHEET_ID = '11TvCpEpz-oK0Ag5ErLJ4s8z9SfRu1IGwieTq0eqbLgQ';
+
 // TODO:
 // - implement Friday-night spreadsheet creation
+// - updateMembershipSpreadsheet
 
-
-function boilerplate(lineDelimiter) {
-  var tmpdatestrs = getLog(-1, COL_DATESTRING).split(DATES_DELIMITER);
-  var dates = [];
-  var datestrs = [];
-  for (var i  in tmpdatestrs) {
-    var fields = tmpdatestrs[i].split('-');
-    var date = new Date(fields[0], fields[1], fields[2]);
-    dates.push(date);
-    datestrs.push(Utilities.formatString('%s, %s %d', DAYS[date.getDay()], MONTHS[date.getMonth()], date.getDate()))
-  }
-  var text = 
-      "Sign up for this week's lesson! (See the links below.) The signup form will close Friday at 6:00 pm (or when all the openings are taken). If you want to attend the lesson, please sign up early!"
-+ lineDelimiter + "You can only attend ONE lesson. You MUST sign-up on the form to be eligible to attend."
-+ lineDelimiter + lineDelimiter + "Lesson Times:";
-  for (var i in datestrs)
-    text += Utilities.formatString(lineDelimiter + "%30s from %8s to %8s" + lineDelimiter + "%30s from %8s to %8s",
-                                    datestrs[i], '9:15am', '11:15am', datestrs[i], '11:15am', '1:00pm');
-  return text;
-}
 
 function composeFacebookPost() {
   var formUrl = getLog(-1, COL_FORM_URL);
   var text = Utilities.formatString("%s\n\nLesson Sign-up: %s", boilerplate('\n'), formUrl);
   Logger.log(text);
   return text;
+}
+
+/* Create form for scheduled lessons to occur in the next 7 days */
+function cronJobCreateForm() {
+  log(COL_TIMESTAMP, new Date())
+  // Check for scheduled lessons from Wed to Wed
+  var from = new Date();
+  from.setDate(from.getDate() - from.getDay() + 3); // Get Wednesday of current week
+  Logger.log('from %s', from.toString())
+  var until = new Date(from);
+  until.setDate(from.getDate() + 7); // Get a week from 'from' date
+  Logger.log('until %s', until.toString());
+  var dates = getScheduledDates(from, until);
+  if (dates.length == 0) {
+    log(COL_DATESTRING, '(not scheduled)');
+    return;
+  } else {
+    log(COL_DATESTRING, dates2Str(dates, DATES_DELIMITER));
+  }
+  // Create form
+  createForm(dates);
+}
+
+function cronJobCloseForm() {
+  var form = getForm();
+  // Close form
+  form.setAcceptingResponses(false);
+  // Update membership spreadsheet from the membership sign-up form
+  var membershipSheet = updateMembershipSpreadsheet();
+  // Make a spreadsheet using this form's responses and the membership spreadsheet
+  createAttendanceSheet(form, membershipSheet);
+}
+
+function cronJobSendEmail() {
+  var curStatus = getLog(-1, COL_EMAIL_STATUS);
+  if (curStatus != 'email sent') {
+    var datesString = getLog(-1, COL_DATESTRING);
+    var formUrl = getLog(-1, COL_FORM_URL);
+    sendEmail(formUrl, datesString);
+    log(COL_EMAIL_STATUS, 'email sent', -1);
+    Logger.log('email send attempted');
+  } else {
+    Logger.log('No email send attempted. Already sent.');
+  }
 }

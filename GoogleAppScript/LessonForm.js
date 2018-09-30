@@ -1,5 +1,3 @@
-CLASS_CAPACITY = 30;
-
 /* Create new form.
   Return reference to form.
   Log form url (col 3) and edit url (col 4)
@@ -9,7 +7,7 @@ function createForm(dates) {
   var form = FormApp.create(title);
   form.setTitle(title); // necessary for use of getTitle()
   var item;
-  form.setLimitOneResponsePerUser(true);
+//  form.setLimitOneResponsePerUser(true);
   form.setShowLinkToRespondAgain(false);
   form.setAllowResponseEdits(true);
   form.setCollectEmail(true);
@@ -35,6 +33,7 @@ function createForm(dates) {
       item.createChoice('Medium'),
       item.createChoice('Large'),
       item.createChoice('X-Large'),
+      item.createChoice('(no, thanks)'),
   ]);
   // Which session would you like to attend?
   item = form.addMultipleChoiceItem().setTitle('Which session would you like to attend?').setRequired(true);
@@ -126,8 +125,8 @@ function onFormSubmitted(data) {
 function setDescription(form) {
   form.setDescription(
     "* The fee for students who are not members of the club is $10."
-    + "\n\n* If you wish to get a membership, please sign-up here (https://goo.gl/forms/z9KZ2wm3z4Vy1Yjn2) The fee is $40 for the quarter or $100 for the academic year. Payment can be made with Cash, Check, or Paypal using \"Send money to family and friends\" to \"ucdarcherytreasurer@gmail.com.\" (no cards!)"
-    + "\n* Members! Don’t forget to sign up for B2H! (https://myrecreation.ucdavis.edu/store/index.aspx?view=activity&Unit=60)"
+    + "\n\n* If you wish to get a membership, please sign-up here ("+MEMBERSHIP_FORM_URL+") The fee is $40 for the quarter or $100 for the academic year. Payment can be made with Cash, Check, or Paypal using \"Send money to family and friends\" to \"ucdarcherytreasurer@gmail.com.\" (no cards!)"
+    + "\n* Members: UC Davis Sports Clubs requires that you submit a B2H waiver! (https://myrecreation.ucdavis.edu/store/index.aspx?view=activity&Unit=60)"
     + "\n\n* We will meet at Howard Field, just north of the MU Parking Structure and West of Toomey Track."
     + "\n* Note: If you are in the first session, we need your help with setting up the field. If you are in the second session, we will need your help with taking down the field."
     + "\n* There is free parking at the MU parking structure on weekends, unless there is a special event."
@@ -183,28 +182,4 @@ function updateSessionSeats(form) {
     }
   }
   return [seats, sessions];
-}
-
-/* Create form for scheduled lessons to occur in the next 7 days */
-function createFormCronJob() {
-  log(COL_TIMESTAMP, new Date())
-  // Check for scheduled lessons from Wed to Wed
-  var from = new Date();
-  from.setDate(from.getDate() - from.getDay() + 3); // Get Wednesday of current week
-  var until = new Date(from);
-  until.setDate(from.getDate() + 7); // Get a week from 'from' date
-  var dates = getScheduledDates(from, until);
-  if (dates.length == 0) {
-    log(COL_DATESTRING, '(not scheduled)');
-    return;
-  } else {
-    log(COL_DATESTRING, dates2Str(dates, DATES_DELIMITER));
-  }
-  // Create form
-  createForm(dates);
-}
-
-function closeFormCronJob() {
-  var form = getForm();
-  form.setAcceptingResponses(false);
 }

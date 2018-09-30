@@ -25,16 +25,3 @@ function sendEmail(formUrl, datesString) {
   };
   MailApp.sendEmail(message);
 }
-
-function sendEmailCronJob() {
-  var curStatus = getLog(-1, COL_EMAIL_STATUS);
-  if (curStatus != 'email sent') {
-    var datesString = getLog(-1, COL_DATESTRING);
-    var formUrl = getLog(-1, COL_FORM_URL);
-    sendEmail(formUrl, datesString);
-    log(COL_EMAIL_STATUS, 'email sent', -1);
-    Logger.log('email send attempted');
-  } else {
-    Logger.log('No email send attempted. Already sent.');
-  }
-}

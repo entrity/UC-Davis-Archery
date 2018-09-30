@@ -1,3 +1,32 @@
+var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function getScheduledDates(from, until) {
+  var dates = []
+  for (i in SCHEDULED_TRIPLETS) {
+    try {
+      var trip = SCHEDULED_TRIPLETS[i];
+      var candidate = new Date(trip[0], trip[1]-1, trip[2]);
+      if (candidate.valueOf() > from.valueOf() && candidate.valueOf() < until.valueOf())
+      dates.push(candidate);
+    } catch (err) {
+      Logger.log(err);
+    }
+  }
+  return dates;
+}
+
+function date2Str(date) {
+  return Utilities.formatString("%d-%02d-%02d", date.getYear(), date.getMonth(), date.getDate());
+}
+
+function dates2Str(dates, delimiter) {
+  var out = [];
+  for (var i in dates)
+    out.push(date2Str(dates[i]));
+  return out.join(delimiter);
+}
+
 function strs2dates(strs) {
   var dates = [];
   for (var i in strs) {

@@ -6,11 +6,7 @@ COL_EMAIL_STATUS = 5;
 
 DATES_DELIMITER = ' & ';
 
-LOGFILE_ID = '1wIxpjS1rgIrc0uBQqoC-04c_f-izMClRWUSDazsYm2M';
 LOG_ROW = null;
-
-var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 // Get logging spreadsheet
 function getLog(row, col) {
@@ -30,32 +26,45 @@ function log(col, val, optionalRowOffset) {
   sheet.getActiveSheet().getRange(row, col, 1, 1).setValue(val)
 }
 
-function date2Str(date) {
-  return Utilities.formatString("%d-%02d-%02d", date.getYear(), date.getMonth(), date.getDate());
-}
-
-function dates2Str(dates, delimiter) {
-  var out = [];
-  for (var i in dates)
-    out.push(date2Str(dates[i]));
-  return out.join(delimiter);
-}
-
-function getScheduledDates(from, until) {
-  var dates = []
-  for (i in SCHEDULED_TRIPLETS) {
-    try {
-      var trip = SCHEDULED_TRIPLETS[i];
-      var candidate = new Date(trip[0], trip[1]-1, trip[2]);
-      if (candidate.valueOf() > from.valueOf() && candidate.valueOf() < until.valueOf())
-      dates.push(candidate);
-    } catch (err) {
-      Logger.log(err);
-    }
+function boilerplate(lineDelimiter) {
+  var tmpdatestrs = getLog(-1, COL_DATESTRING).split(DATES_DELIMITER);
+  var dates = [];
+  var datestrs = [];
+  for (var i  in tmpdatestrs) {
+    var fields = tmpdatestrs[i].split('-');
+    var date = new Date(fields[0], fields[1], fields[2]);
+    dates.push(date);
+    datestrs.push(Utilities.formatString('%s, %s %d', DAYS[date.getDay()], MONTHS[date.getMonth()], date.getDate()))
   }
-  return dates;
+  var text = 
+      "Sign up for this week's lesson! (See the links below.) The signup form will close Friday at 6:00 pm (or when all the openings are taken). If you want to attend the lesson, please sign up early!"
++ lineDelimiter + "You can only attend ONE lesson. You MUST sign-up on the form to be eligible to attend. (If the sign-up form is closed or full *but you have your own equipment* and still want to come, please email us or comment on the facebook post for this week's lesson(s) to ask if we can accomodate you.)"
++ lineDelimiter + lineDelimiter + "Lesson Times:";
+  for (var i in datestrs)
+    text += Utilities.formatString(lineDelimiter + "%30s from %8s to %8s" + lineDelimiter + "%30s from %8s to %8s",
+                                    datestrs[i], '9:15am', '11:15am', datestrs[i], '11:15am', '1:00pm');
+  return text;
 }
 
-function myFunction() {
-  doGet(null)
+function buildFormResponseDict(formResponse) {
+  var m = {};
+  var itemResponses = formResponse.getItemResponses();
+  for (var i in itemResponses) {
+    var item = itemResponses[i].getItem();
+    m[item.getTitle()] = itemResponses[i].getResponse(); 
+  }
+  m.timestamp = formResponse.getTimestamp();
+  return m;
+}
+
+function buildStudentDict(form) {
+  var students = form.getResponses().map(buildFormResponseDict);
+  //  {Email (Davis email preferred)=meychau@ucdavis.edu, Class Standing=1st year, Student ID=915389324, First Name=Mei, Payment Type (Pay at next lesson)=Cash, Last Name=Chau, Phone Number=6265866385, Membership Type (Please note that membership dues are NON-REFUNDABLE once dues have been paid for the term.) =$35 Quarterly Membership, When?=Fall Quarter}
+  var dict = {};
+  for (var i in students) {
+    var student = students[i];
+    student.email = student['Email (Davis email preferred)'] || student['Email'];
+    dict[student['Student ID']] = student;
+  }
+  return dict;
 }
