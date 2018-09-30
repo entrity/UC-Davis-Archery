@@ -21,7 +21,7 @@ function boilerplate(lineDelimiter) {
     datestrs.push(Utilities.formatString('%s, %s %d', DAYS[date.getDay()], MONTHS[date.getMonth()], date.getDate()))
   }
   var text = 
-      "Sign up for this week's lesson! (See the links below.) The signup form will close Friday at 6:00 pm. If you want to attend the lesson, you must sign up fast!"
+      "Sign up for this week's lesson! (See the links below.) The signup form will close Friday at 6:00 pm (or when all the openings are taken). If you want to attend the lesson, please sign up early!"
 + lineDelimiter + "You can only attend ONE lesson. You MUST sign-up on the form to be eligible to attend."
 + lineDelimiter + lineDelimiter + "Lesson Times:";
   for (var i in datestrs)

@@ -44,10 +44,14 @@ function dates2Str(dates, delimiter) {
 function getScheduledDates(from, until) {
   var dates = []
   for (i in SCHEDULED_TRIPLETS) {
-    var trip = SCHEDULED_TRIPLETS[i];
-    var candidate = new Date(trip[0], trip[1]-1, trip[2]);
-    if (candidate.valueOf() > from.valueOf() && candidate.valueOf() < until.valueOf())
-        dates.push(candidate);
+    try {
+      var trip = SCHEDULED_TRIPLETS[i];
+      var candidate = new Date(trip[0], trip[1]-1, trip[2]);
+      if (candidate.valueOf() > from.valueOf() && candidate.valueOf() < until.valueOf())
+      dates.push(candidate);
+    } catch (err) {
+      Logger.log(err);
+    }
   }
   return dates;
 }

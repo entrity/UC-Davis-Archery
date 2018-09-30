@@ -1,4 +1,4 @@
-CLASS_CAPACITY = 1;
+CLASS_CAPACITY = 30;
 
 /* Create new form.
   Return reference to form.
@@ -21,7 +21,7 @@ function createForm(dates) {
   // Student ID#
   form.addTextItem().setTitle('Student ID#').setRequired(true)
   // Email
-  form.addTextItem().setTitle('Email').setRequired(true)
+//  form.addTextItem().setTitle('Email').setRequired(true)
   // How did you receive this form? (Facebook, Email)
   item = form.addMultipleChoiceItem().setTitle('How did you receive this form?').setRequired(false)
   item.setChoices([
@@ -29,7 +29,7 @@ function createForm(dates) {
        item.createChoice('Email')
   ]);
   // Would you like to buy a club T-Shirt? (Skip this question if not.) (Small, Medium, Large, X-Large)
-  item = form.addMultipleChoiceItem().setTitle('Would you like to buy a club T-Shirt? (Skip this question if not.)').setRequired(false)
+  item = form.addMultipleChoiceItem().setTitle('Would you like to buy a club T-Shirt for $15? (Skip this question if not.)').setRequired(false)
   item.setChoices([
       item.createChoice('Small'),
       item.createChoice('Medium'),
@@ -41,15 +41,15 @@ function createForm(dates) {
   item.setHelpText('Options will disappear as sessions become full.');
   item.setChoices(dates2Choices(item, dates));
   // Is there any reason you can only attend a particular lesson (am/pm)?
-  form.addParagraphTextItem().setTitle('Is there a reason you can only attend a certain Lesson Session?').setRequired(false)
-    .setHelpText('There will still be a morning and afternoon session! If you do not have any special reason (i.e. religious, work commitment, friend group, etc...), then we will place you in a session. If you do, state which session you want. More sleep does not count as a valid reason. :P')
+//  form.addParagraphTextItem().setTitle('Is there a reason you can only attend a certain Lesson Session?').setRequired(false)
+//    .setHelpText('There will still be a morning and afternoon session! If you do not have any special reason (i.e. religious, work commitment, friend group, etc...), then we will place you in a session. If you do, state which session you want. More sleep does not count as a valid reason. :P')
   // Are you a paid member?
   item = form.addMultipleChoiceItem().setTitle('Are you a paid member?').setRequired(true)
-  item.setHelpText('Paid members should sign up for our class on B2H.  Please see the link in the pinned post on Facebook for directions.')
+    item.setHelpText('Paid members need to have submitted a B2H liability waiver and a club membership form. See the links below.')
   item.setChoices([
     item.createChoice('Yes'),
     item.createChoice('No'),
-    item.createChoice('No, but I want to be !!! Please complete this form: https://goo.gl/forms/WXKN2qimFZRIvjrh2'),
+    item.createChoice('No, but I want to be !!! Please complete this form: https://goo.gl/forms/WXKN2qimFZRIvjrh2 and submit a liability waiver on B2H: https://myrecreation.ucdavis.edu/store/index.aspx?view=activity&Unit=60'),
   ]);
   // Is this your first time shooting with UC Davis Archery?
   item = form.addMultipleChoiceItem().setTitle('Is this your first time attending a lesson?').setRequired(true)
@@ -59,7 +59,7 @@ function createForm(dates) {
     item.createChoice('I have shot before, but not with UC Davis Archery'),
   ]);
   // Do you need to rent a bow (or the entire suite of 
-  item = form.addMultipleChoiceItem().setTitle('Do you need to rent a bow (or the entire suite of equipment)?').setRequired(false)
+  item = form.addMultipleChoiceItem().setTitle('Do you need to borrow a bow (or the entire suite of equipment)?').setRequired(false)
   item.setChoices([
     item.createChoice('Yes'),
     item.createChoice('No (I have my own equipment)'),
@@ -72,20 +72,20 @@ function createForm(dates) {
     item.createChoice('Finger tab'),
   ]);
   // If you need to need to rent equipment, are you right-handed or left-handed?
-  item = form.addMultipleChoiceItem().setTitle('If you need to need to rent equipment, are you right-handed or left-handed?').setRequired(false)
+  item = form.addMultipleChoiceItem().setTitle('If you need to need to borrow equipment, are you right-handed or left-handed?').setRequired(false)
   item.setChoices([
     item.createChoice('Right'),
     item.createChoice('Left'),
   ]);
   // Returning renters: would you like to use a sight and stabilizer?
   item = form.addCheckboxItem().setTitle('Returning renters: would you like to use a sight and stabilizer?').setRequired(false)
-  item.setHelpText('You must have attended at least 3 lessons to use this equipment.');
+  item.setHelpText('You must have attended at least 3 lessons to use this equipment (unless you use your own).');
   item.setChoices([
     item.createChoice('Yes'),
   ]);
   // Returning renters: would you like to use a compound bow?
   item = form.addCheckboxItem().setTitle('Returning renters: would you like to use a compound bow?').setRequired(false)
-  item.setHelpText('Supplies are limited. You must have attended at least 3 lessons to use this equipment.');
+  item.setHelpText('We are looking for lots of compound archers to join the competitive team! You must have attended at least 3 lessons to use this equipment (unless you use your own).');
   item.setChoices([
     item.createChoice('Yes'),
   ]);
@@ -117,7 +117,7 @@ function getForm() {
   }
   return form;
 }
-    
+
 function onFormSubmitted(data) {
   var form = getForm();
   updateSessionSeats(form);
@@ -126,8 +126,8 @@ function onFormSubmitted(data) {
 function setDescription(form) {
   form.setDescription(
     "* The fee for students who are not members of the club is $10."
-    + "\n\n* If you wish to get a membership, please sign-up here (https://goo.gl/forms/z9KZ2wm3z4Vy1Yjn2) The fee is $40 for the quarter. Payment can be made with Cash, Check, or Paypal using \"Send money to family and friends\" to \"ucdarcherytreasurer@gmail.com.\" (no cards!)"
-    + "\n* Members! Don’t forget to sign up for B2H! (https://myrecreation.ucdavis.edu/store/index.aspx…)"
+    + "\n\n* If you wish to get a membership, please sign-up here (https://goo.gl/forms/z9KZ2wm3z4Vy1Yjn2) The fee is $40 for the quarter or $100 for the academic year. Payment can be made with Cash, Check, or Paypal using \"Send money to family and friends\" to \"ucdarcherytreasurer@gmail.com.\" (no cards!)"
+    + "\n* Members! Don’t forget to sign up for B2H! (https://myrecreation.ucdavis.edu/store/index.aspx?view=activity&Unit=60)"
     + "\n\n* We will meet at Howard Field, just north of the MU Parking Structure and West of Toomey Track."
     + "\n* Note: If you are in the first session, we need your help with setting up the field. If you are in the second session, we will need your help with taking down the field."
     + "\n* There is free parking at the MU parking structure on weekends, unless there is a special event."
