@@ -22,7 +22,12 @@ function composeFacebookPost() {
   return text;
 }
 
-/* Create form for scheduled lessons to occur in the next 7 days */
+/*
+   Create a google form for any lessons scheduled to occur between this Wednesday and next.
+   Because this looks for Wednesday of the current week, this job *MUST NOT* run before Sunday.
+   Running this job deletes triggers associated with any other forms, such as forms from the previous
+   week's lesson signup.
+*/
 function cronJobCreateForm() {
   log(COL_TIMESTAMP, new Date())
   // Check for scheduled lessons from Wed to Wed
@@ -50,7 +55,9 @@ function cronJobCloseForm() {
   // Update membership spreadsheet from the membership sign-up form
   var membershipSheet = updateMembershipSpreadsheet();
   // Make a spreadsheet using this form's responses and the membership spreadsheet
-  createAttendanceSheet(form, membershipSheet);
+//  createAttendanceSheet(form, membershipSheet);
+  // 
+  augmentSpreadsheet();
 }
 
 function cronJobSendEmail() {

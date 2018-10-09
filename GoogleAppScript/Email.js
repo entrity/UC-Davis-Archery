@@ -25,3 +25,16 @@ function sendEmail(formUrl, datesString) {
   };
   MailApp.sendEmail(message);
 }
+
+function sendEarlySignupEmail(formUrl, datesString) {
+  var mm = new Membership();
+  mm.updateSpreadsheet();
+  var membersDict = mm.fromSpreadsheet();
+  var recipients = [];
+  for (var studentId in membersDict) {
+    var m = membersDict[studentId];
+    if (m.email && (m.isPaid || /paypal/i.test(m.paymentType)))
+      recipients.push(m.email);
+  }
+  Logger.log(recipients);
+}

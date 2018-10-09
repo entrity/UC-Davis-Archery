@@ -17,7 +17,7 @@ function getScheduledDates(from, until) {
 }
 
 function date2Str(date) {
-  return Utilities.formatString("%d-%02d-%02d", date.getYear(), date.getMonth(), date.getDate());
+  return Utilities.formatString("%d-%02d-%02d", date.getYear(), 1+date.getMonth(), date.getDate());
 }
 
 function dates2Str(dates, delimiter) {

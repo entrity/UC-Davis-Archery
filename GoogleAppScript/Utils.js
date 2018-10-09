@@ -37,9 +37,15 @@ function boilerplate(lineDelimiter) {
     datestrs.push(Utilities.formatString('%s, %s %d', DAYS[date.getDay()], MONTHS[date.getMonth()], date.getDate()))
   }
   var text = 
-      "Sign up for this week's lesson! (See the links below.) The signup form will close Friday at 6:00 pm (or when all the openings are taken). If you want to attend the lesson, please sign up early!"
-+ lineDelimiter + "You can only attend ONE lesson. You MUST sign-up on the form to be eligible to attend. (If the sign-up form is closed or full *but you have your own equipment* and still want to come, please email us or comment on the facebook post for this week's lesson(s) to ask if we can accomodate you.)"
-+ lineDelimiter + lineDelimiter + "Lesson Times:";
+//      "Sign up for this week's lesson! (See the link below.) The signup form will close Friday at 6:00 pm (or when all the openings are taken). If you want to attend the lesson, please sign up early!"
+//+ lineDelimiter + "You can only attend ONE lesson. You MUST sign-up on the form to be eligible to attend. (If the sign-up form is closed or full *but you have your own equipment* and want to come, please message us. We can probably accomodate you.)"
+//+ lineDelimiter + lineDelimiter + "Lesson Times:";
+  "This week's FREE lesson signup has been posted! (See the link below.)"
++"\n\nThe signup form will close Friday at noon (or earlier, if we notice that all the openings are taken). If you want to attend the lesson, please sign up early!"
++"\n\nPlease be aware that fall time brings us more signups than we have equipment to accommodate, so we will notify you (by Facebook tag or by email) to tell you whether we can accommodate you and when to arrive. This weekend, we are prioritizing *newcomers* to get spots on the shooting line."
++"\n\nBecause this is a free lesson, you can disregard any mention of fees on the signup form. But you are also welcome to pay for a club membership at this time if you wish."
++"\n\nYou can only attend ONE lesson this weekend. You MUST sign-up on the form to be eligible to attend."
++"\n\nLesson Times:"
   for (var i in datestrs)
     text += Utilities.formatString(lineDelimiter + "%30s from %8s to %8s" + lineDelimiter + "%30s from %8s to %8s",
                                     datestrs[i], '9:15am', '11:15am', datestrs[i], '11:15am', '1:00pm');
@@ -54,6 +60,7 @@ function buildFormResponseDict(formResponse) {
     m[item.getTitle()] = itemResponses[i].getResponse(); 
   }
   m.timestamp = formResponse.getTimestamp();
+  if (!m.email) m.email = formResponse.getRespondentEmail();
   return m;
 }
 

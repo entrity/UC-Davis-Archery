@@ -1,5 +1,9 @@
-MEMBERSHIP_FIELDS = ['firstName','lastName','isB2HDone','isPaid','attendanceCt','signupCt','paymentType','signupTimestamp','class','phone','studentId','memberType',]
+MEMBERSHIP_FIELDS = ['firstName','lastName','isB2HDone','isPaid','attendanceCt','signupCt','paymentType','signupTimestamp','class','phone','studentId','memberType','email',]
 MEMBERSHIP_STUDENT_ID_COL = 1 + MEMBERSHIP_FIELDS.indexOf('studentId');
+const N_BALES             = 15;
+const N_BALE_OPENINGS     = 4 * N_BALES;
+const N_BOWS_LEFT_HANDED  = 4;
+const N_BOWS_RIGHT_HANDED = 30;
 
 function Membership () {}
 
@@ -17,6 +21,7 @@ Membership.prototype.fromSignupForm = function() {
   return formDict;
 }
 
+// Return dict of studentID => memberData
 Membership.prototype.fromSpreadsheet = function () {
   // Get existing student ids from members sheet
   this.ss = SpreadsheetApp.openById(MEMBERSHIP_SPREADSHEET_ID);
@@ -34,7 +39,8 @@ Membership.prototype.fromSpreadsheet = function () {
   }
   return sheetDict;
 }
-/* Fetch responses to membership form. Update membership spreadsheet. Return dict of studentId => memberData */
+/* Fetch responses to membership form. Update membership spreadsheet.
+  Return dict of studentId => memberData */
 Membership.prototype.updateSpreadsheet = function () {
   var formDict  = this.fromSignupForm();
   var sheetDict = this.fromSpreadsheet();
@@ -42,57 +48,110 @@ Membership.prototype.updateSpreadsheet = function () {
   // Append new members to spreadsheet
   for (var studentId in formDict) {
     if (!sheetDict[studentId]) {
-      var rowData = MEMBERSHIP_FIELDS.map(function(f) {return sheetDict[studentId][f] || ''});
+      var rowData = MEMBERSHIP_FIELDS.map(function(f) {return formDict[studentId][f] || ''});
       this.sheet.appendRow(rowData);
     }
   }
 }
 
-var getSignupData = function () {
+function Session (name) {
+  this.name          = name;
+  this.nTargets      = N_BALE_OPENINGS;
+  this.nLeftBows     = N_BOWS_LEFT_HANDED;
+  this.nRightBows    = N_BOWS_RIGHT_HANDED;
+  this.registrations = [];
+}
+// Check whether current session has enough bale spots and bows for the given user
+Session.hasResources = function (user) {
+  // todo : ensure that user is not already sheduled for this session
+  return sess.nTargets - 1 >= 0
+  && sess.nRightBows - user.borrowRightBow >= 0
+  && sess.nLeftBows - user.borrowLeftBow >= 0;
+}
+// Attach user to session and vice versa. Decrement session's resources.
+Session.register = function (user) {
+  sess.nTargets   -= 1;
+  sess.nRightBows -= user.borrowRightBow;
+  sess.nLeftBows  -= user.borrowLeftBow;
+  user.weekSessCt += 1;
+  sess.registrations.push(user);
+  user.registrations.push(sess);
+}
+
+function SignupForm () {}
+// Make a dictionary with convenient field names from a form response
+SignupForm.prototype.translateFormResponse = function (formResponse) {
+  var rits = formResponse.getItemResponses();
+  var signup = {
+    'timestamp': formResponse.getTimestamp(),
+    'email': formResponse.getEmail(),
+  };
+  var i = 0;
+  signup.name      = rits[i++].getResponse();
+  signup.studentId = rits[i++].getResponse();
+  signup.tshirt    = rits[i++].getResponse();
+  // Handle dates/sessions input
+  if (!this.sessions) {
+    this.sessionNames = rits[i].getItem().asMultipleChoiceItem().getChoices().map(function (c) {return c.getValue()});
+    this.sessions = this.sessionNames.map(function (name) { return new Session(name) });
+  };
+  signup.preferredSession = rits[i++].getResponse();
+  signup.sessions = rits[i++].getResponse().split(', ').sort(function (a,b) {
+    (a == signup.preferredSession) - (b == signup.preferredSession)
+  });
+  signup.maxRegistrations = parseInt(/\d+/.exec(rits[i++].getResponse())[0]);
+  // Handle fields after dates/sessions
+  signup.isMember       = rits[i++].getResponse() != 'No';
+  signup.borrowBow      = rits[i++].getResponse();
+  signup.borrowRightBow = /right/i.test(signup.borrowBow);
+  signup.borrowLeftBow  = /left/i.test(signup.borrowBow);
+  signup.borrowOR       = rits[i++].getResponse();
+  signup.borrowCompound = rits[i++].getResponse();
+  // Return
+  return signup;
+}
+// ...
+SignupForm.prototype.getSignupData = function () {
   // Update membership sheet & get dict of studentId => memberData
-  mm = new Membership()
+  var mm = new Membership();
   mm.updateSpreadsheet();
   var members = mm.fromSpreadsheet();
-  // Get lesson signup form responses
-  var signups = getForm().getResponses().map(buildFormResponseDict);
-  // Add data from membership ship to lesson signup form responses
+  // Get signup form responses
+  var signups = getFormattedResponseDicts(getForm());
+  // Update form responses with info from membership spreadsheets
   for (var i in signups) {
-    var s = signups[i];
-    for (var key in SIGNUP_KEY_MAP) {
-      s[SIGNUP_KEY_MAP[key]] = s[key];
-      delete s[key];
-    }
-    s.borrowBow      = s.borrowBow && s.borrowBow.replace(/\s\(.*/, '');
-    s.borrowOR       = s.borrowOR == ('Yes') || '';
-    s.borrowCompound = s.borrowCompound == ('Yes') || '';
-    s.attendanceCt   = 0;
-    s.signupCt       = 1;
-    s.b2h            = '';
-    s.paid           = '';
-    s.session        = s.session && s.session.replace(/\s*\(\d+ openings\)/, '');
-    s.term           = '';
-    var member       = members[s.studentId];
+    var signup = signups[i];
+    var member = members[signup.studentId];
     if (member) {
-      Logger.log(member)
-      s.attendanceCt += parseInt(member.attendanceCt || 0);
-      s.signupCt     += parseInt(member.signupCt || 0);
-      s.b2h           = member.isB2HDone;
-      s.paid          = member.isPaid;
-      s.term          = member.memberType;
+      signup.attendanceCt  = parseInt(member.attendanceCt || 0);
+      signup.signupCt      = parseInt(member.signupCt || 0);
+      signup.b2h           = member.isB2HDone;
+      signup.paid          = member.isPaid;
+      signup.term          = member.memberType;
     }
+    signup.weekSessCt    = 0;
+    signup.registrations = [];
   }
   return signups;
 }
 
+var signupForm = new SignupForm();
+var signups = signupForm.getSignupData();
+
+
 function createAttendanceSheet() {
   // Get lesson signups for current form (the form that has a live trigger for this project)
-  var signups = getSignupData();
-  signups.sort(function(a,b) {
-    var d = 0;
-    if (d == 0 && a.session && b.session) d = new Date(b.session) - new Date(a.session);
-    if (d == 0 && a.name && b.name) d = b.name.localeCompare(a.name);
-    return d;
-  });
+  var data = Signup();
+  var signups = data.getSignupData();
+  var sessions = data.sessions;
+  // Allocate resource data
+  var resources = [];
+  for (var i = 0; i < dates.length; i++)
+    resources.push({'nTargets':N_BALE_OPENINGS, 'nLeftBows':N_BOWS_LEFT_HANDED, 'nRightBows':N_BOWS_RIGHT_HANDED})
+  // Make priority queue
+  var pQueue = new Heap(signups);
+  // 
+  
   //  Build spreadsheet for signups
   var spreadsheet = SpreadsheetApp.openById(ATTENDANCE_SPREADSHEET_ID);
   var sheetIndex  = 0;
@@ -139,6 +198,7 @@ function createAttendanceSheet() {
 //  Membership Type=$100  - academic year (available Fall qtr only)
 //}
 
+// For mapping signup sheet data to spreadsheet
 MEMBERSHIP_KEY_MAP = {
   'Payment Type':    'paymentType',
   'Class Standing':  'class',
@@ -148,40 +208,4 @@ MEMBERSHIP_KEY_MAP = {
   'Last Name':       'lastName',
   'Membership Type': 'memberType',
   'timestamp':       'signupTimestamp',
-};
-
-//{
-//	Do you need to borrow other equipment?=[Finger tab]
-//	Is this your first time attending a lesson?=I have shot before
-//	but not with UC Davis Archery
-//	Student ID#=23
-//	Which session would you like to attend?=2018-09-07 9:15am (30 openings)
-//	Would you like to buy a club T-Shirt for $15? (Skip this question if not.)=Large
-//	First & Last Name=sdfg
-//	Facebook Name=eunice
-//	If you need to need to borrow equipment
-//	are you right-handed or left-handed?=Left
-//	Do you need to borrow a bow (or the entire suite of equipment)?=No (I have my own equipment)
-//	Returning renters: would you like to use a sight and stabilizer?=[Yes]
-//	Returning renters: would you like to use a compound bow?=[Yes]
-//	How did you receive this form?=Email
-//	Are you a paid member?=No
-//}
-
-// Map keys from sign-up form to keys on Student object
-SIGNUP_KEY_MAP =
-{
-	'Do you need to borrow other equipment?':                                       'borrowAccessories',
-	'Is this your first time attending a lesson?':                                  'noob',
-	'Student ID#':                                                                  'studentId',
-	'Which session would you like to attend?':                                      'session',
-	'Would you like to buy a club T-Shirt for $15? (Skip this question if not.)':   'buyTshirt',
-	'First & Last Name':                                                            'name',
-	'Facebook Name':                                                                'fbName',
-	'If you need to need to borrow equipment are you right-handed or left-handed?': 'handed',
-	'Do you need to borrow a bow (or the entire suite of equipment)?':              'borrowBow',
-    'Returning renters: would you like to use a sight and stabilizer?':             'borrowOR',
-    'Returning renters: would you like to use a compound bow?':                     'borrowCompound',
-	'How did you receive this form?':                                               'formReceiptChannel',
-	'Are you a paid member?':                                                       'thinksPaid',
 };
