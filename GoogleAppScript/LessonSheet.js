@@ -146,7 +146,7 @@ SignupForm.prototype.getSignupData = function () {
 }
 
 // Create sheet holding edge data from ford fulkerson
-function createEdgesSheet() {
+function createAttendanceSheet() {
   var data = new SignupForm();
   var signups = data.getSignupData();
   var sessions = data.sessions;
@@ -155,37 +155,37 @@ function createEdgesSheet() {
   net.fordFulkerson();
   var output = [];
   var nFields;
+  var fields = [
+    ['borrowOR',         'OR'],
+    ['borrowCompound',   'CPD'],
+    ['paid',             'paid'],
+    ['tshirt',           'tshirt'],
+    ['b2h',              'b2h'],
+    ['email',            'email'],
+    ['studentId',        'studentId'],
+    ['maxRegistrations', 'maxReg'],
+    ['term',             'term'],
+    ['timestamp',        'timestamp'],
+    ['attendanceCt',     'attendanceCt'],
+    ['signupCt',         'signupCt'],
+    ['preferredSession', 'preferredSession'],
+    ['waitlist',         'waitlist'],
+  ];
   for (var i in net.users) {
     var user = net.users[i];
     if (/no/i.test(user.data.tshirt)) user.data.tshirt = '';
     for (var j in user.inboundEdges) {
       var edge = user.inboundEdges[j];
       if (edge.isForward) {
-        var row = [
-          edge.src.name              || '',
-          edge.flow                  || '',
-          edge.dst.name              || '',
-          user.data.borrowOR         || '',
-          user.data.borrowCompound   || '',
-          user.data.paid             || '',
-          user.data.tshirt           || '',
-          user.data.b2h              || '',
-          user.data.email            || '',
-          user.data.studentId        || '',
-          user.data.maxRegistrations || '',
-          user.data.term             || '',
-          user.data.timestamp        || '',
-          user.data.attendanceCt     || '',
-          user.data.signupCt         || '',
-          user.data.preferredSession || '',
-          user.data.maxRegistrations || '',
-          user.data.waitlist         || '',
-        ];
+        var rowPrefix = [edge.src.name, edge.flow||'', edge.dst.name];
+        var rowSuffix = fields.map(function (tup) { return user.data[tup[0]] || '' });
+        var row = rowPrefix.concat(rowSuffix);
         output.push(row);
         if (0 == i) nFields = row.length;
       }
     }
   }
+  Logger.log(net.users[0].data)
   // Write edge data to spreadsheet
   var spreadsheet = SpreadsheetApp.openById(ATTENDANCE_SPREADSHEET_ID);
   var sheets = spreadsheet.getSheets();
@@ -206,13 +206,15 @@ function createEdgesSheet() {
   var users = {};
   for (var r in output) {
     var row = output[r];
-    if (!users[row[2]]) // Column 2 holds the user's name
-      users[row[2]] = Array.apply(null, Array(sessions.length)).map(String.prototype.valueOf,'').concat(row.slice(2,9)); // Get name, OR, Compound, paid, tshirt, b2h
+    if (!users[row[2]]) { // Column 2 holds the user's name
+      var sessionCells = Array.apply(null, Array(sessions.length)).map(String.prototype.valueOf,'')
+      users[row[2]] = sessionCells.concat(row.slice(2,row.length)); // Get name, OR, Compound, paid, tshirt, b2h
+    }
     if (r == 0)
       nFields = users[row[2]].length;
     var sessName = row[0].slice(2);
     var sessIdx  = sessionsMap[sessName];
-    Logger.log('-- --- %s %s %s %s', sessIdx, row[0], row[1], row[2]);
+    // Logger.log('-- --- %s %s %s %s', sessIdx, row[0], row[1], row[2]);
     var sessCode = (row[1] == 1) ? row[0][0] : ''; // If flow is not zero, this session is a GO for this user
     users[row[2]][sessIdx] = sessCode;
   }
@@ -221,12 +223,19 @@ function createEdgesSheet() {
     usersArray.push(users[k]);
   }
   // Write second output to sheet
-  var headers = ['name', 'OR', 'CPD', 'paid', 'tshirt', 'b2h', 'email'];
-  for (var s in sessions)
-    headers.unshift(sessions[s].name);
+  var headers = fields.map(function (tup) { return tup[1] });
+  headers.unshift('name');
+  for (var s in sessions) headers.unshift(sessions[s].name);
   sheet.getRange(1, 1, 1, nFields).setValues([headers]);
   sheet.getRange(2, 1, usersArray.length, nFields).setValues(usersArray);
   Logger.log(spreadsheet.getUrl());
+  // Compute totals on spreadsheet
+  var summaryCellData = [
+    ['=countif(A1:A'+(usersArray.length)+',"X")', '=countif(B1:B'+(usersArray.length)+',"X")'],
+    ['=countif(A1:A'+(usersArray.length)+',"R")', '=countif(B1:B'+(usersArray.length)+',"R")'],
+    ['=countif(A1:A'+(usersArray.length)+',"L")', '=countif(B1:B'+(usersArray.length)+',"L")'],
+  ];
+  sheet.getRange(4+usersArray.length, 1, 3, 2).setValues(summaryCellData);
 }
 
 

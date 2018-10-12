@@ -33,7 +33,7 @@ function ResidualNetwork (sessions, users) {
 	this.source   = new Node(null, 'source');
 	this.sink     = new Node(null, 'sink');
 	this.edges    = []; // [src,dst] => {cap, flow, reciprocal, src, dst}
-	this.X = {}; this.R = {}; this.L = {}; // sess.name => Node
+	this.S = {}; this.X = {}; this.R = {}; this.L = {}; // sess.name => Node
 	this.initSessEdges();
 	this.initUserEdges();
 	Logger.log('NET BUILT');
@@ -43,12 +43,14 @@ Object.defineProperties(ResidualNetwork.prototype, {
 		value: function () {
 			for (var i in this.sessions) {
 				var sess = this.sessions[i];
+				this.S[sess.name] = new Node(sess, sess.name);
 				this.X[sess.name] = new Node(sess, 'X_'+sess.name);
 				this.R[sess.name] = new Node(sess, 'R_'+sess.name);
 				this.L[sess.name] = new Node(sess, 'L_'+sess.name);
-				this.addEdgePair(this.source, this.X[sess.name], N_BALE_OPENINGS, 0);
-				this.addEdgePair(this.X[sess.name], this.R[sess.name], N_BOWS_RIGHT_HANDED, 0)
-				this.addEdgePair(this.X[sess.name], this.L[sess.name], N_BOWS_LEFT_HANDED, 0)
+				this.addEdgePair(this.source, this.S[sess.name], N_BALE_OPENINGS, 0);
+				this.addEdgePair(this.S[sess.name], this.X[sess.name], N_BALE_OPENINGS, 0)
+				this.addEdgePair(this.S[sess.name], this.R[sess.name], N_BOWS_RIGHT_HANDED, 0)
+				this.addEdgePair(this.S[sess.name], this.L[sess.name], N_BOWS_LEFT_HANDED, 0)
 			}
 		},
 	},
@@ -108,30 +110,19 @@ Object.defineProperties(ResidualNetwork.prototype, {
 	'pathfind': {
 		// Do search from sink to source so that all are at the same level
 		value: function () {
-			// Logger.log(' --- pathfindh');
 			var queue = [this.sink]; // search frontier
 			var hist  = {}; // node => 1
 			var path  = {}; // node => outbound edge
+			// Logger.log('...pf')
 			while (queue.length) {
-				// Logger.log('in while loop')
 				var node = queue.shift();
 				if (hist[node.name]) continue;
 				hist[node.name] = 1;
-				// Logger.log()
-				// Logger.log(node.inboundEdges.length)
 				for (var ei in node.inboundEdges) {
 					var edge = node.inboundEdges[ei];
-					// Logger.log('src '+edge.src.name+' --> '+edge.dst.name)
-					// Logger.log(edge)
 					var iCare = /Christopher/.test(edge.src.name);
-					// if (iCare) 
-						// Logger.log('A')
 					if (path[edge.src.name]) continue;
-					// if (iCare) 
-						// Logger.log('B')
 					if (edge.capacity == edge.flow) continue;
-					// if (iCare)
-						// Logger.log('C %s %s', edge.capacity, edge.flow)
 					queue.push(edge.src);
 					path[edge.src.name] = edge;
 					if (edge.src == this.source) {
@@ -148,19 +139,15 @@ Object.defineProperties(ResidualNetwork.prototype, {
 	},
 	'fordFulkerson': {
 		value: function () {
-			Logger.log('run algo');
+			this.sink.inboundEdges.sort(cmpEdgesFromUserToSink);
 			// find max flow
 			while (true) {
 				// Sort edges between users and sink
-				this.sink.inboundEdges.sort(function (edgeA, edgeB) {
-					var a = edgeA.src; // user A
-					var b = edgeB.src; // user B
-					var d =
-						(edgeA.flow - edgeB.flow) // favour low ct
-						|| (a.timestamp - b.timestamp) // favour low timestamp
-						|| -(a.isMember - b.isMember); // favour members
-					return d <= 0;
-				});
+				this.sink.inboundEdges.sort(cmpEdgesFromUserToSink);
+				// for (var i in this.sink.inboundEdges) {
+				// 	var ed = this.sink.inboundEdges[i];
+				// 	Logger.log('(%s) %s -> %s', ed.flow, ed.src.name,ed.dst.name);
+				// }
 				// Find path from sink to source
 				if (!this.pathfind()) break;
 				// Update flows
@@ -173,6 +160,15 @@ Object.defineProperties(ResidualNetwork.prototype, {
 		},
 	},
 });
+function cmpEdgesFromUserToSink (edgeA, edgeB) {
+	var a = edgeA.src; // user A
+	var b = edgeB.src; // user B
+	var d =
+		(edgeA.flow - edgeB.flow) // favour low ct
+		|| (a.data.timestamp.valueOf() - b.data.timestamp.valueOf()) // favour low timestamp
+		|| -(a.data.isMember - b.data.isMember); // favour members
+	return d;
+}
 
 
 function tdt() {
@@ -181,7 +177,7 @@ function tdt() {
 		{registrations:[], nRightBows:30, name:'2018-10-14 11:15am (36 openings)', nLeftBows:4, nTargets:60},
 	],[
 		{borrowBow:false, registrations:[], preferredSession:'2018-10-14 9:15am (36 openings)', isMember:true, weekSessCt:0, studentId:914973045, borrowRightBow:false, tshirt:'(not this week)', borrowLeftBow:false, name:'Christopher Nguyen', waitlist:['2018-10-14 9:15am (36 openings)', '2018-10-14 11:15am (36 openings)'], maxRegistrations:1, email:'aamcqueary@ucdavis.edu', timestamp:new Date('Wed Oct 10 06:01:20 GMT-07:00 2018')},
-		{borrowBow:false, registrations:[], preferredSession:'2018-10-14 9:15am (36 openings)', isMember:true, weekSessCt:0, studentId:914973045, borrowRightBow:false, tshirt:'(not this week)', borrowLeftBow:false, name:'Alexis McQueary', waitlist:['2018-10-14 9:15am (36 openings)', '2018-10-14 11:15am (36 openings)'], maxRegistrations:2, email:'aamcqueary@ucdavis.edu', timestamp:new Date('Wed Oct 10 06:01:20 GMT-07:00 2018')},
+		{borrowBow:false, registrations:[], preferredSession:'2018-10-14 9:15am (36 openings)', isMember:true, weekSessCt:0, studentId:914973045, borrowRightBow:false, tshirt:'(not this week)', borrowLeftBow:false, name:'Alexis McQueary', waitlist:['2018-10-14 9:15am (36 openings)', '2018-10-14 11:15am (36 openings)'], maxRegistrations:2, email:'aamcqueary@ucdavis.edu', timestamp:new Date('Wed Oct 10 05:01:20 GMT-07:00 2018')},
 		{borrowBow:true, registrations:[], preferredSession:'2018-10-14 9:15am (36 openings)', isMember:true, weekSessCt:0, studentId:915355248, borrowRightBow:true, tshirt:'Medium', borrowLeftBow:false, name:'Kylie Sherman', waitlist:['2018-10-14 9:15am (36 openings)'], maxRegistrations:1, email:'krsherman@ucdavis.edu', timestamp:new Date('Wed Oct 10 06:32:19 GMT-07:00 2018')},
 	]);
 	net.fordFulkerson();
