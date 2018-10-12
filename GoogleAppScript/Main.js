@@ -10,10 +10,6 @@ MEMBERSHIP_FORM_ID        = '1z7FNWHneU1jLYVhXcMR_7TcHbvAL_pKER-NwIq7qS-g';
 MEMBERSHIP_SPREADSHEET_ID = '1oXwQN1Bf22RCARJ8Uz5RHxSb_-J8g8S86UAhNZLbhaU';
 ATTENDANCE_SPREADSHEET_ID = '11TvCpEpz-oK0Ag5ErLJ4s8z9SfRu1IGwieTq0eqbLgQ';
 
-// TODO:
-// - implement Friday-night spreadsheet creation
-// - updateMembershipSpreadsheet
-
 
 function composeFacebookPost() {
   var formUrl = getLog(-1, COL_FORM_URL);

@@ -190,7 +190,7 @@ function createAttendanceSheet() {
   if (oldSheet)     spreadsheet.deleteSheet(oldSheet);
   var sheet       = spreadsheet.insertSheet(sheetName, sheetIndex);
   // Reformat output
-  var sessionsMap = {};
+  var sessionsMap = {}; // sessionName => session
   for (var s in sessions)
     sessionsMap[sessions[s].name] = s;
   var output2 = [];
@@ -216,7 +216,7 @@ function createAttendanceSheet() {
   // Write second output to sheet
   var headers = fields.map(function (tup) { return tup[1] });
   headers.unshift('name');
-  for (var s in sessions) headers.unshift(sessions[s].name);
+  for (var i = sessions.length - 1; i >= 0; i--) headers.unshift(sessions[i].name);
   sheet.getRange(1, 1, 1, nFields).setValues([headers]);
   sheet.getRange(2, 1, usersArray.length, nFields).setValues(usersArray);
   Logger.log(spreadsheet.getUrl());

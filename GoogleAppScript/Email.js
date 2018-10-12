@@ -3,7 +3,7 @@ LISTSERV = 'archery-club@ucdavis.edu';
 
 // Get list of email addresses
 function getEmailRecipients() {
-  return ['ucdaggiearchery@gmail.com'];
+  return LISTSERV; // define this in Project properties
 }
 
 // Send emails
@@ -57,7 +57,7 @@ function sendAttendanceEmail() {
     var body;
     var subject;
     if (regs.length) {
-      body = 'We have reserved a space on the shooting line for you for the following session(s) of Archery Club lessons. We look forward to seeing you!\n\n'+regs.join('\n')+'\n\nPlease notify us ASAP if you cannot attend any of the sessions.\n\nPlease meet us on Howard field: https://tinyurl.com/y8nnju6e';
+      body = 'We have reserved a space on the shooting line for you for the following session(s) of Archery Club lessons. We look forward to seeing you!\n\n'+regs.join('\n')+'\n\nPlease notify us ASAP if you cannot attend any of the sessions.\n\nPlease meet us on Howard field, which lies north of the parking structure standing north of the MU: https://tinyurl.com/y8nnju6e';
       subject = 'Your reservations for archery session(s)';
     } else {
       body = 'Unfortunately, because of our shortage of bows, we cannot receive you during a lesson this week.\n\n(There actually remain plenty of spaces on the shooting line, so if you know someone who can lend you a bow and arrows, then please let us know, and we will find a space for you on the line.)\n\nWe hope you will sign up again when the next signup form is posted. When assigning bows for weekend lessons, we prioritize early signups.';
