@@ -1,9 +1,11 @@
 MEMBERSHIP_FIELDS = ['firstName','lastName','isB2HDone','isPaid','attendanceCt','signupCt','paymentType','signupTimestamp','class','phone','studentId','memberType','email',]
 MEMBERSHIP_STUDENT_ID_COL = 1 + MEMBERSHIP_FIELDS.indexOf('studentId');
-const N_BALES             = 15;
-const N_BALE_OPENINGS     = 4 * N_BALES;
-const N_BOWS_LEFT_HANDED  = 4;
-const N_BOWS_RIGHT_HANDED = 30;
+N_BALES             = 15;
+N_BALE_OPENINGS     = 4 * N_BALES;
+N_BOWS_LEFT_HANDED  = 4;
+N_BOWS_RIGHT_HANDED = 30;
+
+// todo remove duplicates (keeping later submission; will work if we use a hashtable based on studentid)
 
 function Membership () {}
 
@@ -61,22 +63,22 @@ function Session (name) {
   this.nRightBows    = N_BOWS_RIGHT_HANDED;
   this.registrations = [];
 }
-// Check whether current session has enough bale spots and bows for the given user
-Session.hasResources = function (user) {
-  // todo : ensure that user is not already sheduled for this session
-  return sess.nTargets - 1 >= 0
-  && sess.nRightBows - user.borrowRightBow >= 0
-  && sess.nLeftBows - user.borrowLeftBow >= 0;
-}
-// Attach user to session and vice versa. Decrement session's resources.
-Session.register = function (user) {
-  sess.nTargets   -= 1;
-  sess.nRightBows -= user.borrowRightBow;
-  sess.nLeftBows  -= user.borrowLeftBow;
-  user.weekSessCt += 1;
-  sess.registrations.push(user);
-  user.registrations.push(sess);
-}
+// // Check whether current session has enough bale spots and bows for the given user
+// Session.hasResources = function (user) {
+//   // todo : ensure that user is not already sheduled for this session
+//   return sess.nTargets - 1 >= 0
+//   && sess.nRightBows - user.borrowRightBow >= 0
+//   && sess.nLeftBows - user.borrowLeftBow >= 0;
+// }
+// // Attach user to session and vice versa. Decrement session's resources.
+// Session.register = function (user) {
+//   sess.nTargets   -= 1;
+//   sess.nRightBows -= user.borrowRightBow;
+//   sess.nLeftBows  -= user.borrowLeftBow;
+//   user.weekSessCt += 1;
+//   sess.registrations.push(user);
+//   user.registrations.push(sess);
+// }
 
 function SignupForm () {}
 // Make a dictionary with convenient field names from a form response
@@ -84,29 +86,38 @@ SignupForm.prototype.translateFormResponse = function (formResponse) {
   var rits = formResponse.getItemResponses();
   var signup = {
     'timestamp': formResponse.getTimestamp(),
-    'email': formResponse.getEmail(),
+    'email': formResponse.getRespondentEmail(),
   };
   var i = 0;
   signup.name      = rits[i++].getResponse();
   signup.studentId = rits[i++].getResponse();
-  signup.tshirt    = rits[i++].getResponse();
+  if (/buy.+shirt/i.test(rits[i].getItem().getTitle()))
+    signup.tshirt    = rits[i++].getResponse();
   // Handle dates/sessions input
+  var self = this;
   if (!this.sessions) {
     this.sessionNames = rits[i].getItem().asMultipleChoiceItem().getChoices().map(function (c) {return c.getValue()});
     this.sessions = this.sessionNames.map(function (name) { return new Session(name) });
   };
   signup.preferredSession = rits[i++].getResponse();
-  signup.sessions = rits[i++].getResponse().split(', ').sort(function (a,b) {
-    (a == signup.preferredSession) - (b == signup.preferredSession)
-  });
+  if (/CAN.+attend/i.test(rits[i].getItem().getTitle()))
+    signup.waitlist = rits[i++].getResponse().toString().split(/,\s*/).sort(function (a,b) {
+      (a == signup.preferredSession) - (b == signup.preferredSession)
+    });
+    
   signup.maxRegistrations = parseInt(/\d+/.exec(rits[i++].getResponse())[0]);
   // Handle fields after dates/sessions
   signup.isMember       = rits[i++].getResponse() != 'No';
-  signup.borrowBow      = rits[i++].getResponse();
-  signup.borrowRightBow = /right/i.test(signup.borrowBow);
-  signup.borrowLeftBow  = /left/i.test(signup.borrowBow);
-  signup.borrowOR       = rits[i++].getResponse();
-  signup.borrowCompound = rits[i++].getResponse();
+  if (rits[i] && /borrow.+bow/.test(rits[i].getItem().getTitle())) {
+    signup.borrowBow      = rits[i++].getResponse();
+    signup.borrowRightBow = /right/i.test(signup.borrowBow);
+    signup.borrowLeftBow  = /left/i.test(signup.borrowBow);
+    signup.borrowBow      = ! /No/i.test(signup.borrowBow);
+  }
+  if (rits[i] && /returning.+sight/i.test(rits[i].getItem().getTitle()))
+    signup.borrowOR       = rits[i++].getResponse();
+  if (rits[i] && /returning.+compound/i.test(rits[i].getItem().getTitle()))
+    signup.borrowCompound = rits[i++].getResponse();
   // Return
   return signup;
 }
@@ -117,7 +128,8 @@ SignupForm.prototype.getSignupData = function () {
   mm.updateSpreadsheet();
   var members = mm.fromSpreadsheet();
   // Get signup form responses
-  var signups = getFormattedResponseDicts(getForm());
+  var signupForm = this;
+  var signups = getForm().getResponses().map(function (r) { return signupForm.translateFormResponse(r) });
   // Update form responses with info from membership spreadsheets
   for (var i in signups) {
     var signup = signups[i];
@@ -129,74 +141,95 @@ SignupForm.prototype.getSignupData = function () {
       signup.paid          = member.isPaid;
       signup.term          = member.memberType;
     }
-    signup.weekSessCt    = 0;
-    signup.registrations = [];
   }
   return signups;
 }
 
-var signupForm = new SignupForm();
-var signups = signupForm.getSignupData();
-
-
-function createAttendanceSheet() {
-  // Get lesson signups for current form (the form that has a live trigger for this project)
-  var data = Signup();
+// Create sheet holding edge data from ford fulkerson
+function createEdgesSheet() {
+  var data = new SignupForm();
   var signups = data.getSignupData();
   var sessions = data.sessions;
-  // Allocate resource data
-  var resources = [];
-  for (var i = 0; i < dates.length; i++)
-    resources.push({'nTargets':N_BALE_OPENINGS, 'nLeftBows':N_BOWS_LEFT_HANDED, 'nRightBows':N_BOWS_RIGHT_HANDED})
-  // Make priority queue
-  var pQueue = new Heap(signups);
-  // 
-  
-  //  Build spreadsheet for signups
+  // Run Ford Fulkerson algorithm to achieve max flow
+  var net = new ResidualNetwork(sessions, signups);
+  net.fordFulkerson();
+  var output = [];
+  var nFields;
+  for (var i in net.users) {
+    var user = net.users[i];
+    if (/no/i.test(user.data.tshirt)) user.data.tshirt = '';
+    for (var j in user.inboundEdges) {
+      var edge = user.inboundEdges[j];
+      if (edge.isForward) {
+        var row = [
+          edge.src.name              || '',
+          edge.flow                  || '',
+          edge.dst.name              || '',
+          user.data.borrowOR         || '',
+          user.data.borrowCompound   || '',
+          user.data.paid             || '',
+          user.data.tshirt           || '',
+          user.data.b2h              || '',
+          user.data.email            || '',
+          user.data.studentId        || '',
+          user.data.maxRegistrations || '',
+          user.data.term             || '',
+          user.data.timestamp        || '',
+          user.data.attendanceCt     || '',
+          user.data.signupCt         || '',
+          user.data.preferredSession || '',
+          user.data.maxRegistrations || '',
+          user.data.waitlist         || '',
+        ];
+        output.push(row);
+        if (0 == i) nFields = row.length;
+      }
+    }
+  }
+  // Write edge data to spreadsheet
   var spreadsheet = SpreadsheetApp.openById(ATTENDANCE_SPREADSHEET_ID);
+  var sheets = spreadsheet.getSheets();
+  var sheet = sheets[sheets.length - 1];
+  sheet.getRange(1, 1, output.length, nFields).setValues(output);
+  Logger.log(sheet.getName());
+  // New sheet for this week
   var sheetIndex  = 0;
   var sheetName   = getForm().getTitle().replace(/[A-Z]/gi,'');
   var oldSheet    = spreadsheet.getSheetByName(sheetName);
   if (oldSheet)     spreadsheet.deleteSheet(oldSheet);
   var sheet       = spreadsheet.insertSheet(sheetName, sheetIndex);
-  spreadsheet.setActiveSheet(sheet);
-  // Helper function to write to sheet
-  function set(row, col, val) {
-    sheet.getRange(row, col, 1, 1).setValue(val === undefined ? '' : val);
+  // Reformat output
+  var sessionsMap = {};
+  for (var s in sessions)
+    sessionsMap[sessions[s].name] = s;
+  var output2 = [];
+  var users = {};
+  for (var r in output) {
+    var row = output[r];
+    if (!users[row[2]]) // Column 2 holds the user's name
+      users[row[2]] = Array.apply(null, Array(sessions.length)).map(String.prototype.valueOf,'').concat(row.slice(2,9)); // Get name, OR, Compound, paid, tshirt, b2h
+    if (r == 0)
+      nFields = users[row[2]].length;
+    var sessName = row[0].slice(2);
+    var sessIdx  = sessionsMap[sessName];
+    Logger.log('-- --- %s %s %s %s', sessIdx, row[0], row[1], row[2]);
+    var sessCode = (row[1] == 1) ? row[0][0] : ''; // If flow is not zero, this session is a GO for this user
+    users[row[2]][sessIdx] = sessCode;
   }
-  // Write header line
-  var fields = ['name', 'session', 'attendanceCt', 'b2h', 'paid', 'term', 'buyTshirt', 'borrowBow', 'borrowOR', 'borrowCompound', 'borrowAccessories', 'formReceiptChannel', 'studentId', 'noob', 'thinksPaid'];
-  for (var f = 0; f < fields.length; f++) {
-    set(1, 1.0+f, fields[f]);
+  var usersArray = [];
+  for (var k in users) {
+    usersArray.push(users[k]);
   }
-  // Iterate signups
-  for (var i = 0; i < signups.length; i++) {
-    for (var f = 0; f < fields.length; f++)
-      set(2.0+i, 1.0+f, signups[i][fields[f]]);
-    if (!signups[i].b2h)
-      sheet.getRange(2.0+i, 1.0+fields.indexOf('b2h')).setBackgroundRGB(200, 100, 0);
-    if (!signups[i].paid)
-      sheet.getRange(2.0+i, 1.0+fields.indexOf('paid')).setBackgroundRGB(200, 0, 100);
-    if (/year/i.test(signups[i].term))
-      sheet.getRange(2.0+i, 1.0+fields.indexOf('term')).setBackgroundRGB(150, 160, 177);
-    else if (/fall/i.test(signups[i].term))
-      sheet.getRange(2.0+i, 1.0+fields.indexOf('term')).setBackgroundRGB(160, 77, 160);
-    else if (/winter/i.test(signups[i].term))
-      sheet.getRange(2.0+i, 1.0+fields.indexOf('term')).setBackgroundRGB(100, 100, 255);
-    else if (/spring/i.test(signups[i].term))
-      sheet.getRange(2.0+i, 1.0+fields.indexOf('term')).setBackgroundRGB(100, 255, 100);
-  }
+  // Write second output to sheet
+  var headers = ['name', 'OR', 'CPD', 'paid', 'tshirt', 'b2h', 'email'];
+  for (var s in sessions)
+    headers.unshift(sessions[s].name);
+  sheet.getRange(1, 1, 1, nFields).setValues([headers]);
+  sheet.getRange(2, 1, usersArray.length, nFields).setValues(usersArray);
+  Logger.log(spreadsheet.getUrl());
 }
 
-//{
-//  Payment Type=Paypal (use “Send money to family and friends” to “ucdarcherytreasurer@gmail.com.”),
-//  Class Standing=Grad Student,
-//  Phone=,
-//  Student ID=912588283,
-//  First Name=Markham,
-//  Last Name=Anderson,
-//  Membership Type=$100  - academic year (available Fall qtr only)
-//}
+
 
 // For mapping signup sheet data to spreadsheet
 MEMBERSHIP_KEY_MAP = {

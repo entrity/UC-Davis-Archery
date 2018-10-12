@@ -27,24 +27,13 @@ function log(col, val, optionalRowOffset) {
 }
 
 function boilerplate(lineDelimiter) {
-  var tmpdatestrs = getLog(-1, COL_DATESTRING).split(DATES_DELIMITER);
-  var dates = [];
-  var datestrs = [];
-  for (var i  in tmpdatestrs) {
-    var fields = tmpdatestrs[i].split('-');
-    var date = new Date(fields[0], fields[1], fields[2]);
-    dates.push(date);
-    datestrs.push(Utilities.formatString('%s, %s %d', DAYS[date.getDay()], MONTHS[date.getMonth()], date.getDate()))
-  }
+  var tmpdatestrs = getLog(-1, COL_DATESTRING).toString().split(DATES_DELIMITER);
+  var dates = tmpdatestrs.map(function(s){ return new Date(s) });
+  var datestrs = dates.map(function(d) { return Utilities.formatString('%s, %s %d', DAYS[d.getDay()], MONTHS[d.getMonth()], d.getDate()) });
   var text = 
-//      "Sign up for this week's lesson! (See the link below.) The signup form will close Friday at 6:00 pm (or when all the openings are taken). If you want to attend the lesson, please sign up early!"
-//+ lineDelimiter + "You can only attend ONE lesson. You MUST sign-up on the form to be eligible to attend. (If the sign-up form is closed or full *but you have your own equipment* and want to come, please message us. We can probably accomodate you.)"
-//+ lineDelimiter + lineDelimiter + "Lesson Times:";
-  "This week's FREE lesson signup has been posted! (See the link below.)"
+"Sign up for this week's lesson! (See the link below.) You MUST submit the form to be eligible to shoot on a \"lesson\" day."
 +"\n\nThe signup form will close Friday at noon (or earlier, if we notice that all the openings are taken). If you want to attend the lesson, please sign up early!"
-+"\n\nPlease be aware that fall time brings us more signups than we have equipment to accommodate, so we will notify you (by Facebook tag or by email) to tell you whether we can accommodate you and when to arrive. This weekend, we are prioritizing *newcomers* to get spots on the shooting line."
-+"\n\nBecause this is a free lesson, you can disregard any mention of fees on the signup form. But you are also welcome to pay for a club membership at this time if you wish."
-+"\n\nYou can only attend ONE lesson this weekend. You MUST sign-up on the form to be eligible to attend."
++"\n\nPlease be aware that fall time brings us more signups than we have equipment to accommodate, so we will notify you by email to tell you whether we can accommodate you and when to arrive."
 +"\n\nLesson Times:"
   for (var i in datestrs)
     text += Utilities.formatString(lineDelimiter + "%30s from %8s to %8s" + lineDelimiter + "%30s from %8s to %8s",
