@@ -5,7 +5,6 @@ N_BALE_OPENINGS     = 4 * N_BALES;
 N_BOWS_LEFT_HANDED  = 4;
 N_BOWS_RIGHT_HANDED = 30;
 
-// todo remove duplicates (keeping later submission; will work if we use a hashtable based on studentid)
 
 function Membership () {}
 
@@ -63,22 +62,6 @@ function Session (name) {
   this.nRightBows    = N_BOWS_RIGHT_HANDED;
   this.registrations = [];
 }
-// // Check whether current session has enough bale spots and bows for the given user
-// Session.hasResources = function (user) {
-//   // todo : ensure that user is not already sheduled for this session
-//   return sess.nTargets - 1 >= 0
-//   && sess.nRightBows - user.borrowRightBow >= 0
-//   && sess.nLeftBows - user.borrowLeftBow >= 0;
-// }
-// // Attach user to session and vice versa. Decrement session's resources.
-// Session.register = function (user) {
-//   sess.nTargets   -= 1;
-//   sess.nRightBows -= user.borrowRightBow;
-//   sess.nLeftBows  -= user.borrowLeftBow;
-//   user.weekSessCt += 1;
-//   sess.registrations.push(user);
-//   user.registrations.push(sess);
-// }
 
 function SignupForm () {}
 // Make a dictionary with convenient field names from a form response
@@ -130,6 +113,8 @@ SignupForm.prototype.getSignupData = function () {
   // Get signup form responses
   var signupForm = this;
   var signups = getForm().getResponses().map(function (r) { return signupForm.translateFormResponse(r) });
+  // Make a dict in order to overwrite duplicates
+  var dict = {};
   // Update form responses with info from membership spreadsheets
   for (var i in signups) {
     var signup = signups[i];
@@ -141,7 +126,13 @@ SignupForm.prototype.getSignupData = function () {
       signup.paid          = member.isPaid;
       signup.term          = member.memberType;
     }
+    dict[signup.studentId] = signup;
   }
+  // Turn dict into array
+  var signups = [];
+  for (var studentId in dict)
+    signups.push(dict[studentId]);
+  // Return
   return signups;
 }
 
@@ -157,7 +148,7 @@ function createAttendanceSheet() {
   var nFields;
   var fields = [
     ['borrowOR',         'OR'],
-    ['borrowCompound',   'CPD'],
+    ['borrowCompound',   'CMPD'],
     ['paid',             'paid'],
     ['tshirt',           'tshirt'],
     ['b2h',              'b2h'],
@@ -230,14 +221,18 @@ function createAttendanceSheet() {
   sheet.getRange(2, 1, usersArray.length, nFields).setValues(usersArray);
   Logger.log(spreadsheet.getUrl());
   // Compute totals on spreadsheet
+  var colEnd = usersArray.length;
   var summaryCellData = [
-    ['=countif(A1:A'+(usersArray.length)+',"X")', '=countif(B1:B'+(usersArray.length)+',"X")'],
-    ['=countif(A1:A'+(usersArray.length)+',"R")', '=countif(B1:B'+(usersArray.length)+',"R")'],
-    ['=countif(A1:A'+(usersArray.length)+',"L")', '=countif(B1:B'+(usersArray.length)+',"L")'],
+    ['=countif(A1:A'+(colEnd)+',"X")', '=countif(B1:B'+(colEnd)+',"X")'],
+    ['=countif(A1:A'+(colEnd)+',"R")', '=countif(B1:B'+(colEnd)+',"R")'],
+    ['=countif(A1:A'+(colEnd)+',"L")', '=countif(B1:B'+(colEnd)+',"L")'],
   ];
-  sheet.getRange(4+usersArray.length, 1, 3, 2).setValues(summaryCellData);
+  sheet.getRange(4+colEnd, 1, summaryCellData.length, 2).setValues(summaryCellData);
+  sheet.getRange(4+5+colEnd, 1, 1, 2).setValues([[
+    '='+colEnd+' - INDIRECT(ADDRESS(ROW(), COLUMN()+1))',
+    '=ARRAYFormula(sum(if((ISBLANK(B1:B'+(colEnd)+')*isblank(A1:A'+(colEnd)+')), 1, 0)))',
+  ]]);
 }
-
 
 
 // For mapping signup sheet data to spreadsheet
