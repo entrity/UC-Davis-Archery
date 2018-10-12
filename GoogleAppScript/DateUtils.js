@@ -16,6 +16,12 @@ function getScheduledDates(from, until) {
   return dates;
 }
 
+function dtStr2Date(str) {
+  var m = /(\d{4})-(\d{2})-(\d{2}) (\d+:\d+)(\w{2})/.exec(str);
+  var fmttedStr = m.slice(1,4).join('/') +' '+ m[4];
+  return new Date(fmttedStr);
+}
+
 function date2Str(date) {
   return Utilities.formatString("%d-%02d-%02d", date.getYear(), 1+date.getMonth(), date.getDate());
 }

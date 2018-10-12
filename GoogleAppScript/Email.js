@@ -7,7 +7,7 @@ function getEmailRecipients() {
 }
 
 // Send emails
-function sendEmail(formUrl, datesString) {
+function sendSignupEmail(formUrl, datesString) {
   var recipients = getEmailRecipients();
   var imgBlob = UrlFetchApp
                            .fetch(EMAIL_IMG_URL)
@@ -26,15 +26,50 @@ function sendEmail(formUrl, datesString) {
   MailApp.sendEmail(message);
 }
 
-function sendEarlySignupEmail(formUrl, datesString) {
-  var mm = new Membership();
-  mm.updateSpreadsheet();
-  var membersDict = mm.fromSpreadsheet();
-  var recipients = [];
-  for (var studentId in membersDict) {
-    var m = membersDict[studentId];
-    if (m.email && (m.isPaid || /paypal/i.test(m.paymentType)))
-      recipients.push(m.email);
+function sendAttendanceEmail() {
+  var spreadsheet = SpreadsheetApp.openById(ATTENDANCE_SPREADSHEET_ID);
+  Logger.log('attendance Spreadsheet %s', spreadsheet.getUrl());
+  var sheet = spreadsheet.getSheets()[0];
+  var sessions = []
+  var values = sheet.getDataRange().getValues();
+  var headers = values[0];
+  var data = values.slice(1);
+  // Get session (date) columns
+  for (var i in headers) {
+    if (!/\d{4}-\d{2}/.test(headers[i])) break;
+    sessions.push(dtStr2Date(headers[i]));
   }
-  Logger.log(recipients);
+  // Get map of names to columns
+  var headerMap = {};
+  for (var i in headers)
+    headerMap[headers[i]] = i;
+  // Iterate users
+  for (var i in data) {
+    var row   = data[i];
+    var email = row[headerMap.email];
+    if (!email) continue;
+    // Collect successful reservations
+    var regs = [];
+    for (var i = 0; i < sessions.length; i++)
+      if (row[i]) regs.push(sessions[i]);
+    regs.sort(function (a,b) { return a.valueOf() - b.valueOf() });
+    // Compose email body and subject
+    var body;
+    var subject;
+    if (regs.length) {
+      body = 'We have reserved a space on the shooting line for you for the following session(s) of Archery Club lessons. We look forward to seeing you!\n\n'+regs.join('\n')+'\n\nPlease notify us ASAP if you cannot attend any of the sessions.\n\nPlease meet us on Howard field: https://tinyurl.com/y8nnju6e';
+      subject = 'Your reservations for archery session(s)';
+    } else {
+      body = 'Unfortunately, because of our shortage of bows, we cannot receive you during a lesson this week.\n\n(There actually remain plenty of spaces on the shooting line, so if you know someone who can lend you a bow and arrows, then please let us know, and we will find a space for you on the line.)\n\nWe hope you will sign up again when the next signup form is posted. When assigning bows for weekend lessons, we prioritize early signups.';
+      subject = 'Insufficient resources for this week\'s archery session(s)';
+    }
+    Logger.log('%s\n%s', row[headerMap.email], body);
+    // Build and send email
+    var message = {
+      to: email,
+      subject: subject,
+      htmlBody: 'Dear '+row[headerMap.name]+',<br><br>'+body.replace(/\n/g,'<br>')+'<br><br>Kind regards',
+    };
+    MailApp.sendEmail(message);
+  }
 }

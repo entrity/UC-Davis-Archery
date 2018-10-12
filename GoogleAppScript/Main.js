@@ -55,9 +55,7 @@ function cronJobCloseForm() {
   // Update membership spreadsheet from the membership sign-up form
   var membershipSheet = updateMembershipSpreadsheet();
   // Make a spreadsheet using this form's responses and the membership spreadsheet
-//  createAttendanceSheet(form, membershipSheet);
-  // 
-  augmentSpreadsheet();
+  createAttendanceSheet();
 }
 
 function cronJobSendEmail() {
@@ -65,7 +63,7 @@ function cronJobSendEmail() {
   if (curStatus != 'email sent') {
     var datesString = getLog(-1, COL_DATESTRING);
     var formUrl = getLog(-1, COL_FORM_URL);
-    sendEmail(formUrl, datesString);
+    sendSignupEmail(formUrl, datesString);
     log(COL_EMAIL_STATUS, 'email sent', -1);
     Logger.log('email send attempted');
   } else {
