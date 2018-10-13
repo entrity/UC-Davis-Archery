@@ -96,6 +96,7 @@ SignupForm.prototype.translateFormResponse = function (formResponse) {
     signup.borrowRightBow = /right/i.test(signup.borrowBow);
     signup.borrowLeftBow  = /left/i.test(signup.borrowBow);
     signup.borrowBow      = ! /No/i.test(signup.borrowBow);
+    signup.bowCode        = signup.borrowBow ? (signup.borrowRightBow ? 'R' : signup.borrowLeftBow ? 'L' : 'e') : 'X';
   }
   if (rits[i] && /returning.+sight/i.test(rits[i].getItem().getTitle()))
     signup.borrowOR       = rits[i++].getResponse();
@@ -147,12 +148,13 @@ function createAttendanceSheet() {
   var output = [];
   var nFields;
   var fields = [
+    ['email',            'email'],
+    ['bowCode',          'b'],
     ['borrowOR',         'OR'],
     ['borrowCompound',   'CMPD'],
     ['paid',             'paid'],
     ['tshirt',           'tshirt'],
     ['b2h',              'b2h'],
-    ['email',            'email'],
     ['studentId',        'studentId'],
     ['maxRegistrations', 'maxReg'],
     ['term',             'term'],
