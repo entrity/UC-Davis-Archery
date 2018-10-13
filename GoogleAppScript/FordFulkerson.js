@@ -57,11 +57,25 @@ Object.defineProperties(ResidualNetwork.prototype, {
 	'initUserEdges': {
 		value: function () {
 			// Create edges
-			Logger.log('initUserEdges')
+			Logger.log('initUserEdges');
 			for (var i in this.users) {
 				var user = this.users[i];
-				// Set outbound edges (to sink) based on maxRegistrations
+				// Get Resource node dict for this user's needs
+				var upstreamDict;
+				if (user.data.borrowBow) {
+					if (user.data.borrowRightBow) {
+						upstreamDict = this.R;
+					} else if (user.data.borrowLeftBow) {
+						upstreamDict = this.L;
+					} else {
+						throw new Exception('badddd');
+					}
+				} else {
+					upstreamDict = this.X;
+				}
+				// Create outbound edges (to sink) based on maxRegistrations
 				var edgeToSink = this.addEdgePair(user, this.sink, user.data.maxRegistrations, 0);
+				// Ensure values in waitlist are valid
 				for (var j in user.data.waitlist) {
 					var sess = user.data.waitlist[j];
 					// Ensure sess is a valid key in this.X
@@ -73,39 +87,49 @@ Object.defineProperties(ResidualNetwork.prototype, {
 						Logger.log(this.X);
 						return
 					}
-					// Set inbound edges based on resources X, R, L
-					if (user.data.borrowBow) {
-						if (user.data.borrowRightBow) {
-							this.addEdgePair(this.R[sess], user, 1, 0);
-						} else if (user.data.borrowLeftBow) {
-							this.addEdgePair(this.L[sess], user, 1, 0);
-						} else {
-							throw new Exception('badddd');
-						}
-					} else {
-						this.addEdgePair(this.X[sess], user, 1, 0);
-					}
-
+				}
+				/* Create inbound edges, dividing between forward and backward
+					so that they will be in an order conducive to pathfinding:
+					Edges requiring no trades (forward) will be preferred, and 
+					they will be searched in forward order. If they are exhausted
+					and a trade is needed, backward edges will be searched in
+					backward order so as to postpone trading the user's most
+					preferred session. */
+				// Create inbound forward edges based on resources X, R, L
+				for (var j in user.data.waitlist) {
+					var sess = user.data.waitlist[j];
+					var ab = this.addSingleEdge(upstreamDict[sess], user, 1, 0, true);
+				}
+				// Create inbound backward edges based on resources X, R, L
+				var n1 = user.data.waitlist.length - 1;
+				for (var j = n1; j >= 0; j--) {
+					var sess = user.data.waitlist[j];
+					var ba = this.addSingleEdge(upstreamDict[sess], user, 1, 0, false);
+					var ab = user.inboundEdges[n1 - j];
+					ba.reciprocal = ab;
+					ab.reciprocal = ba;
 				}
 			}
 		},
 	},
 	'addEdgePair': {
 		value: function (a, b, capacity, abFlow) {
-			var ab = new Edge(a, b, capacity, abFlow);
-			var ba = new Edge(b, a, capacity, capacity - abFlow);
-			ab.isForward = true;
+			var ab = this.addSingleEdge(a, b, capacity, abFlow, true);
+			var ba = this.addSingleEdge(a, b, capacity, capacity - abFlow, false);
 			ab.reciprocal = ba;
 			ba.reciprocal = ab;
-			a.inboundEdges.push(ba);
-			b.inboundEdges.push(ab);
-			a.outboundEdges.push(ab);
-			b.outboundEdges.push(ba);
-			this.edges.push(ab);
-			this.edges.push(ba);
 			// Logger.log('--'+ab.str());
 			return a;
 		},
+	},
+	'addSingleEdge': {
+		value: function (a, b, capacity, abFlow, isForward) {
+			var ab = new Edge(a, b, capacity, abFlow);
+			b.inboundEdges.push(ab);
+			a.outboundEdges.push(ab);
+			this.edges.push(ab);
+			return ab;
+		}
 	},
 	'pathfind': {
 		// Do search from sink to source so that all are at the same level
@@ -144,10 +168,6 @@ Object.defineProperties(ResidualNetwork.prototype, {
 			while (true) {
 				// Sort edges between users and sink
 				this.sink.inboundEdges.sort(cmpEdgesFromUserToSink);
-				// for (var i in this.sink.inboundEdges) {
-				// 	var ed = this.sink.inboundEdges[i];
-				// 	Logger.log('(%s) %s -> %s', ed.flow, ed.src.name,ed.dst.name);
-				// }
 				// Find path from sink to source
 				if (!this.pathfind()) break;
 				// Update flows
