@@ -1,0 +1,196 @@
+var FIRST_WEEK_ATTENDANCE_SHEET_ID = '1deZqi4z_zE_0hAPFklBUJi8KGuSzHzf2XaRwlxUIEH0';
+var MEMBERSHIP_SHEET_ID = '1oXwQN1Bf22RCARJ8Uz5RHxSb_-J8g8S86UAhNZLbhaU';
+
+function Member (name, studentId, email) {
+  this.name = name;
+  this.studentId = studentId;
+  this.email = email;
+}
+function memberFromMembershipRow(row) {
+  return new Member(row[0]+' '+row[1], row[10], row[12]);
+}
+function memberFromAttendanceRow (row) {
+  return new Member(row[3], row[10], row[9]);
+}
+
+function copyDataToMembershipSheet() {
+  var sa = SpreadsheetApp.openById(ATTENDANCE_SPREADSHEET_ID);
+  var sas = sa.getSheets()[0];
+  var att = sas.getDataRange().getValues().slice(1);
+  att = att.map(function (r) { return memberFromAttendanceRow(r) });
+  var attDict = {}; // name => Member
+  for (var i in att) {
+    attDict[att[i].name] = att[i];
+    Logger.log(att[i].name)
+  }
+  
+  var sm = SpreadsheetApp.openById(MEMBERSHIP_SHEET_ID);
+  var sms = sm.getSheets()[0];
+  var range = sms.getDataRange();
+  var mem = range.getValues();
+  for (var i in mem) {
+    if (0 == i) continue;
+    Logger.log(mem[i][0]+' '+mem[i][1])
+    var a = attDict[mem[i][0]+' '+mem[i][1]];
+    if (!a) continue;
+    if (!mem[i][10]) mem[i][10] = a.studentId;
+    if (!mem[i][12]) mem[i][12] = a.email;
+  }
+  
+  range.setValues(mem);
+}
+
+function getMemberships() {
+  var ss = SpreadsheetApp.openById(MEMBERSHIP_SHEET_ID);
+  var sheet = ss.getSheetByName('Sheet1');
+  return sheet.getDataRange().getValues();
+}
+
+function getMembershipDicts() {
+  var all = getMemberships();
+  var headers = all[0];
+  var data = all.slice(1);
+  return data.map(function (row) {
+    var d = {};
+    for (var i in headers) {
+      var h = headers[i];
+      d[h] = row[i];
+    }
+    return d;
+  });
+}
+
+function SheetData (ssId, sheetName, dictKeyColName) {
+  var self = this;
+  this.ss      = SpreadsheetApp.openById(ssId);
+  this.sheet   = this.ss.getSheetByName(sheetName);
+  this.all     = this.sheet.getDataRange().getValues();
+  this.headers = this.all[0];
+  this.keyIdx  = this.headers.indexOf(dictKeyColName);
+  this.data    = this.all.slice(1);
+  this.dict    = this.data.reduce(function (acc, row) {
+    var key = row[self.keyIdx];
+    if (key)
+      acc[key] = row.reduce(function (obj, val, c) {
+        var col = self.headers[c];
+        if (/first.+last.+name/i.test(col)) col = 'name';
+        else if (/student.*id/i.test(col))  col = 'studentId';
+        obj[col] = val;
+        return obj;
+      }, {});
+    return acc;
+  }, {});
+}
+
+// Dict is studentid => {}
+function WeekAttendance(sheetName) {
+  SheetData.call(this, ATTENDANCE_SPREADSHEET_ID, sheetName, 'studentId');
+  for (var studentId in this.dict) {
+    Logger.log('studentId %s' ,studentId)
+    var obj = this.dict[studentId];
+    obj.attendanceCt = parseInt(obj.attendance);
+    obj.signupCt = 0;
+    for (var col in obj) // check column names from spreadsheet
+      if (/\d{4}.\d{2}.\d{2}/.test(col) && obj[col] && obj[col].trim().length)
+        obj.signupCt ++;
+  }
+}
+
+function GlobalAttendance() {
+  SheetData.call(this, MEMBERSHIP_SHEET_ID, 'Attendees', 'StudentId');
+}
+
+// Return dict
+function getFirstWeekAttendance() {
+  var formData = new SheetData(FIRST_WEEK_ATTENDANCE_SHEET_ID, 'Form Responses 1', 'First & Last Name').dict;
+  var attendanceData = new SheetData(FIRST_WEEK_ATTENDANCE_SHEET_ID, 'Attendance', 'First & Last Name').dict;
+//  Logger.log(attendanceData)
+  var out = {};
+  for (var name in formData) {
+    var signupCt = 0;
+    var attD     = attendanceData[name];
+    if (attD) {
+      if (attD['Sat am'] && attD['Sat am'].trim().length) signupCt ++;
+      if (attD['Sat pm'] && attD['Sat pm'].trim().length) signupCt ++;
+      if (attD['Sun am'] && attD['Sun am'].trim().length) signupCt ++;
+      if (attD['Sun pm'] && attD['Sun pm'].trim().length) signupCt ++;
+      var attCt      = attD.Attendance && attD.Attendance.trim().length || 0;
+    } else 
+      attCt  =0;
+    var formD      = formData[name];
+    
+    var studentId  = formD['studentId'];
+    var email      = formD['Email Address'];
+    
+    out[studentId] = {
+      studentId: studentId,
+      email: email,
+      attendanceCt: attCt,
+      signupCt: signupCt,
+      name: formD.name,
+    };
+  }
+  Logger.log(out);
+  return out;
+}
+
+function getAllWeeksAttendance() {
+  // Helper function
+  function mergeWeekAttendance(out, weekData) {
+    Logger.log('called merge %s', weekData)
+    for (var studentId in weekData) {
+      Logger.log(studentId)
+      if (out[studentId]) {
+        out[studentId].signupCt     += weekData[studentId].signupCt;
+        out[studentId].attendanceCt += weekData[studentId].attendanceCt;
+      } else {
+        out[studentId] = weekData[studentId];
+        out[studentId].signupCt || (out[studentId].signupCt = 0);
+        out[studentId].attendanceCt || (out[studentId].attendanceCt = 0);
+      }
+    }
+  }
+  // Get later weeks' attendance
+  var ss     = SpreadsheetApp.openById(ATTENDANCE_SPREADSHEET_ID);
+  var sheets = ss.getSheets();
+  var out = {};
+  for (var i in sheets) {
+    var sheet = sheets[i];
+    var name  = sheet.getName();
+    if (/^\s*\d{4}.\d{2}.\d{2}\s*$/.test(name)) { // This is a tab we care about
+      Logger.log('fetching attendance from %s', name);
+      mergeWeekAttendance(out, new WeekAttendance(name).dict);
+    }
+  }
+  // Get first week's attendance
+  mergeWeekAttendance(out, getFirstWeekAttendance());
+  // Return
+  return out;
+}
+
+/*
+Build sheet of attendance counts and signup counts, using the 
+first week's attendance sheet and the several tabs from the 
+attendance sheet that covers all later weeks.
+*/
+function nutsToSoup() {
+  var data = getAllWeeksAttendance();
+  Logger.log(data)
+  var fields = ['studentId', 'attendanceCt', 'signupCt', 'name', 'email'];
+  var I_NAME = 3;
+  // Make 2D array of data rows
+  var matrix = [];
+  for (var studentId in data) {
+    var d = data[studentId];
+    matrix.push(fields.map(function (field) { return d[field]; }));
+  }
+  // Sort data rows
+  Logger.log(matrix)
+  matrix.sort(function (a,b) { return a[I_NAME].localeCompare(b[I_NAME]); });
+  // Insert header row
+  matrix.unshift(fields);
+  // Write to spreadsheet
+  var ss = SpreadsheetApp.openById(MEMBERSHIP_SHEET_ID);
+  var sheet = ss.getSheetByName('Attendees');
+  sheet.getRange(1, 1, matrix.length, fields.length).setValues(matrix);
+}
