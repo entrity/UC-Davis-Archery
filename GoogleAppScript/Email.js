@@ -1,9 +1,10 @@
 EMAIL_IMG_URL = 'https://drive.google.com/file/d/0B1-32OLugCURa3RDbGFlTWQ5R1E/view?usp=sharing';
 LISTSERV = 'archery-club@ucdavis.edu';
+UNSUB_P = "<p style='text-align:center'><a href=\"https://lists.ucdavis.edu/sympa/signoff/archery-club\">[Unsubscribe]</a></p>";
 
 // Get list of email addresses
 function getEmailRecipients() {
-  return LISTSERV; // define this in Project properties
+  return ['ucdaggiearchery@gmail.com'];
 }
 
 // Send emails
@@ -13,10 +14,8 @@ function sendSignupEmail(formUrl, datesString) {
                            .fetch(EMAIL_IMG_URL)
                            .getBlob()
                            .setName("imgBlob");
-  var htmlBody = "<p style='text-align:center'><a href=\"https://lists.ucdavis.edu/sympa/signoff/archery-club\">[Unsubscribe]</a></p>" +
-    "<p>" + boilerplate('<br>') + "</p>" +
-    "<p>Please complete the form here: <a href='" + formUrl +  "'>" + formUrl + "</a></p>" +
-    "<p style='text-align:center'><a href=\"https://lists.ucdavis.edu/sympa/signoff/archery-club\">[Unsubscribe]</a></p>";
+  var htmlBody = UNSUB_P + "<p>" + boilerplate('<br>') + "</p>" +
+    "<p>Please complete the form here: <a href='" + formUrl +  "'>" + formUrl + "</a></p>" + UNSUB_P;
   var subject = Utilities.formatString("Lesson Sign-Up %s", datesString);
   var message = {
     to: LISTSERV,
@@ -24,6 +23,23 @@ function sendSignupEmail(formUrl, datesString) {
     htmlBody: htmlBody,
   };
   MailApp.sendEmail(message);
+}
+
+function sendOpenPracticeEmail() {
+  var htmlBody = Utilities.formatString('%s<p>Open Practice today for archery club members!</p> \
+                                        <p>If you have attended at least one "Lesson and New Memberships" event (typically held on Sundays) and meet the following criteria for full membership, please come join us! If you haven\'t already, you can get all of these done online today!</p> \
+                                        <ol> \
+                                           <li>Submit a membership form online (<a href="%s">link</a>)</li> \
+                                           <li>Pay for membership (you can pay by Paypal)</li> \
+                                           <li>Complete B2H for School Sports Clubs online (<a href="%s">link</a>)</li> \
+                                        </ol> \
+                                        <p>Meet us on Howard Field (<a href="https://goo.gl/maps/gMshKoZ4nMN2">map</a>) at 4:30 pm to set up. Howard Field lies north of the parking structure which stands north of the MU and east of the tennis courts and west of the running track.</p> \
+                                        %s', UNSUB_P, MEMBERSHIP_FORM_URL, B2H_URL, UNSUB_P);
+  MailApp.sendEmail({
+    to: LISTSERV,
+    subject: Utilities.formatString('Open Practice today for Archery Club members'),
+    htmlBody: htmlBody,
+  });
 }
 
 function sendAttendanceEmail() {
@@ -44,32 +60,28 @@ function sendAttendanceEmail() {
   for (var i in headers)
     headerMap[headers[i]] = i;
   // Iterate users
+  var sets = [[],[]]
   for (var i in data) {
     var row   = data[i];
     var email = row[headerMap.email];
     if (!email) continue;
+    if (MailApp.getRemainingDailyQuota() == 0) {
+      Logger.log("Quota reached. Unable to email %s", email);
+      continue;
+    }
     // Collect successful reservations
     var regs = [];
+    
     for (var i = 0; i < sessions.length; i++)
-      if (row[i]) regs.push(sessions[i]);
-    regs.sort(function (a,b) { return a.valueOf() - b.valueOf() });
-    // Compose email body and subject
-    var body;
-    var subject;
-    if (regs.length) {
-      body = 'We have reserved a space on the shooting line for you for the following session(s) of Archery Club lessons. We look forward to seeing you!\n\n'+regs.join('\n')+'\n\nPlease notify us ASAP if you cannot attend any of the sessions.\n\nPlease meet us on Howard field, which lies north of the parking structure standing north of the MU: https://tinyurl.com/y8nnju6e';
-      subject = 'Your reservations for archery session(s)';
-    } else {
-      body = 'Unfortunately, because of our shortage of bows, we cannot receive you during a lesson this week.\n\n(There actually remain plenty of spaces on the shooting line, so if you know someone who can lend you a bow and arrows, then please let us know, and we will find a space for you on the line.)\n\nWe hope you will sign up again when the next signup form is posted. When assigning bows for weekend lessons, we prioritize early signups.';
-      subject = 'Insufficient resources for this week\'s archery session(s)';
-    }
-    Logger.log('%s\n%s', row[headerMap.email], body);
-    // Build and send email
-    var message = {
-      to: email,
-      subject: subject,
-      htmlBody: 'Dear '+row[headerMap.name]+',<br><br>'+body.replace(/\n/g,'<br>')+'<br><br>Kind regards',
-    };
-    MailApp.sendEmail(message);
+      if (row[i]) 
+        sets[i].push(email);
   }
+  Logger.log(sets[0]);
+  Logger.log('------------------')
+  Logger.log(sets[1]);
+  return;
+  
 }
+
+function fs()
+{Logger.log('qt %s',MailApp.getRemainingDailyQuota())}

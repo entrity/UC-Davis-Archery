@@ -96,7 +96,6 @@ SignupForm.prototype.translateFormResponse = function (formResponse) {
     signup.borrowRightBow = /right/i.test(signup.borrowBow);
     signup.borrowLeftBow  = /left/i.test(signup.borrowBow);
     signup.borrowBow      = ! /No/i.test(signup.borrowBow);
-    signup.bowCode        = signup.borrowBow ? (signup.borrowRightBow ? 'R' : signup.borrowLeftBow ? 'L' : 'e') : 'X';
   }
   if (rits[i] && /returning.+sight/i.test(rits[i].getItem().getTitle()))
     signup.borrowOR       = rits[i++].getResponse();
@@ -111,22 +110,27 @@ SignupForm.prototype.getSignupData = function () {
   var mm = new Membership();
   mm.updateSpreadsheet();
   var members = mm.fromSpreadsheet();
+  // Update form responses with info from attendance sheet
+  var attendance = new SheetData(MEMBERSHIP_SHEET_ID, 'Attendees', 'studentId').dict;
   // Get signup form responses
   var signupForm = this;
   var signups = getForm().getResponses().map(function (r) { return signupForm.translateFormResponse(r) });
   // Make a dict in order to overwrite duplicates
   var dict = {};
-  // Update form responses with info from membership spreadsheets
+  // Get B2H completion (from Membership workbook)
+  var b2h = getCompletedB2H();
+  // Update form responses with info from membership sheet
   for (var i in signups) {
     var signup = signups[i];
     var member = members[signup.studentId];
+    var att    = attendance[signup.studentId] || {};
+    signup.attendanceCt  = parseInt(att.attendanceCt || 0);
+    signup.signupCt      = parseInt(att.signupCt || 0);  
     if (member) {
-      signup.attendanceCt  = parseInt(member.attendanceCt || 0);
-      signup.signupCt      = parseInt(member.signupCt || 0);
-      signup.b2h           = member.isB2HDone;
       signup.paid          = member.isPaid;
       signup.term          = member.memberType;
     }
+    signup.b2h             = b2h[signup.name] || '';
     dict[signup.studentId] = signup;
   }
   // Turn dict into array
@@ -138,23 +142,23 @@ SignupForm.prototype.getSignupData = function () {
 }
 
 // Create sheet holding edge data from ford fulkerson
-function createAttendanceSheet() {
+function createLessonRoster() {
   var data = new SignupForm();
   var signups = data.getSignupData();
   var sessions = data.sessions;
   // Run Ford Fulkerson algorithm to achieve max flow
   var net = new ResidualNetwork(sessions, signups);
-  net.fordFulkerson();
+  net.fordFulkerson(); // net.users[i].data is signups[i]
+  // Prepare output matrix
   var output = [];
   var nFields;
   var fields = [
-    ['email',            'email'],
-    ['bowCode',          'b'],
     ['borrowOR',         'OR'],
     ['borrowCompound',   'CMPD'],
     ['paid',             'paid'],
     ['tshirt',           'tshirt'],
     ['b2h',              'b2h'],
+    ['email',            'email'],
     ['studentId',        'studentId'],
     ['maxRegistrations', 'maxReg'],
     ['term',             'term'],
@@ -178,12 +182,11 @@ function createAttendanceSheet() {
       }
     }
   }
-  Logger.log(net.users[0].data)
   // Write edge data to spreadsheet
   var spreadsheet = SpreadsheetApp.openById(ATTENDANCE_SPREADSHEET_ID);
   var sheets = spreadsheet.getSheets();
   var sheet = sheets[sheets.length - 1];
-  sheet.getRange(1, 1, output.length, nFields).setValues(output);
+  sheet.getRange(1, 2, output.length, nFields).setValues(output);
   Logger.log(sheet.getName());
   // New sheet for this week
   var sheetIndex  = 0;
@@ -199,40 +202,77 @@ function createAttendanceSheet() {
   var users = {};
   for (var r in output) {
     var row = output[r];
-    if (!users[row[2]]) { // Column 2 holds the user's name
+    var name = row[2]; // Column 2 holds the user's name
+    // Create primary columns (sliced straight from the edges tab's output)
+    if (!users[name]) {
       var sessionCells = Array.apply(null, Array(sessions.length)).map(String.prototype.valueOf,'')
-      users[row[2]] = sessionCells.concat(row.slice(2,row.length)); // Get name, OR, Compound, paid, tshirt, b2h
+      if (r == 0) Logger.log('lengths %s %s %s', sessionCells.length, sessions.length, row.slice(2).length);
+      users[name] = sessionCells.concat(row.slice(2)); // Get name, OR, Compound, paid, tshirt, b2h
     }
-    if (r == 0)
-      nFields = users[row[2]].length;
+    // Update a single session column for the user, based on the current edge
     var sessName = row[0].slice(2);
     var sessIdx  = sessionsMap[sessName];
-    // Logger.log('-- --- %s %s %s %s', sessIdx, row[0], row[1], row[2]);
     var sessCode = (row[1] == 1) ? row[0][0] : ''; // If flow is not zero, this session is a GO for this user
-    users[row[2]][sessIdx] = sessCode;
+    users[name][sessIdx] = sessCode;
   }
   var usersArray = [];
   for (var k in users) {
+    users[k].unshift(''); // Blank value in which to record attendance
     usersArray.push(users[k]);
   }
-  // Write second output to sheet
+  // Write second output to sheet...
+  // Format headers
   var headers = fields.map(function (tup) { return tup[1] });
   headers.unshift('name');
   for (var i = sessions.length - 1; i >= 0; i--) headers.unshift(sessions[i].name);
+  headers.unshift('attendance');
+  nFields = headers.length;
+  // Write headers
+  Logger.log('headers %s %s', nFields, headers.length);
+  Logger.log(headers);
   sheet.getRange(1, 1, 1, nFields).setValues([headers]);
+  // Write data
+  Logger.log('1st row');
+  Logger.log(usersArray[0]);
+  Logger.log(nFields);
   sheet.getRange(2, 1, usersArray.length, nFields).setValues(usersArray);
   Logger.log(spreadsheet.getUrl());
   // Compute totals on spreadsheet
-  var colEnd = usersArray.length;
-  var summaryCellData = [
-    ['=countif(A1:A'+(colEnd)+',"X")', '=countif(B1:B'+(colEnd)+',"X")'],
-    ['=countif(A1:A'+(colEnd)+',"R")', '=countif(B1:B'+(colEnd)+',"R")'],
-    ['=countif(A1:A'+(colEnd)+',"L")', '=countif(B1:B'+(colEnd)+',"L")'],
-  ];
-  sheet.getRange(4+colEnd, 1, summaryCellData.length, 2).setValues(summaryCellData);
+  var colEnd = 1 + usersArray.length;
+  var summaryCellData = [];
+  var resourceTypes = ['X', 'R', 'L'];
+
+function cellRangeStr(col, rowStart, rowEnd) {
+  Logger.log('cellRangeSTr %s %s %s', col, rowStart, rowEnd);
+  return ''+col+rowStart+':'+col+rowEnd;
+}
+// Create summary cells for X, R, L
+for (var i in resourceTypes) {
+  var t = resourceTypes[i];
+  var row = [t]
+  for (var j in sessions) {
+    var col = String.fromCharCode(parseInt(66+parseInt(j)));
+    row.push('=countif('+cellRangeStr(col, 2, colEnd)+',"'+t+'")')
+  }
+  summaryCellData.push(row);
+}
+// Create summary cells for N00b (first-timers)
+var row = ['N00b']
+for (var j in sessions) {
+  
+  var col = String.fromCharCode(parseInt(66+parseInt(j)));
+//  Logger.log('j %s %s %s %s %s %s', j, col, 66+j, 66+parseInt(j), String.fromCharCode(66),String.fromCharCode(66+j));
+  row.push('=ARRAYFORMULA(sum(if(isblank('+cellRangeStr(col,2,colEnd)+')*(isblank('+cellRangeStr('O',2,colEnd)+')+EQ('+cellRangeStr('O',2,colEnd)+', 0)), 1, 0)))')
+}
+summaryCellData.push(row);
+//    ['X', '=countif(B2:B'+(colEnd)+',"X")', '=countif(C2:C'+(colEnd)+',"X")'],
+//    ['R', '=countif(B2:B'+(colEnd)+',"R")', '=countif(C2:C'+(colEnd)+',"R")'],
+//    ['L', '=countif(B2:B'+(colEnd)+',"L")', '=countif(C2:C'+(colEnd)+',"L")'],
+//  ];
+  sheet.getRange(4+colEnd, 1, summaryCellData.length, summaryCellData[0].length).setValues(summaryCellData);
   sheet.getRange(4+5+colEnd, 1, 1, 2).setValues([[
     '='+colEnd+' - INDIRECT(ADDRESS(ROW(), COLUMN()+1))',
-    '=ARRAYFormula(sum(if((ISBLANK(B1:B'+(colEnd)+')*isblank(A1:A'+(colEnd)+')), 1, 0)))',
+    '=ARRAYFormula(sum(if((ISBLANK(B2:B'+(colEnd)+')*isblank(C2:c'+(colEnd)+')), 1, 0)))',
   ]]);
 }
 

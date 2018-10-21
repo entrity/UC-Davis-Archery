@@ -45,7 +45,7 @@ function createForm(dates) {
   item.setChoices([
     item.createChoice('Yes'),
     item.createChoice('No'),
-    item.createChoice('No, but I want to be !!! Please complete this form: https://goo.gl/forms/WXKN2qimFZRIvjrh2 and submit a liability waiver on B2H: https://myrecreation.ucdavis.edu/store/index.aspx?view=activity&Unit=60'),
+    item.createChoice('No, but I want to be !!! Please complete this form: '+MEMBERSHIP_FORM_URL+' and submit a liability waiver on B2H: '+B2H_URL),
   ]);
   // Do you need to rent a bow (or the entire suite of 
   item = form.addMultipleChoiceItem().setTitle('Do you need to borrow a bow?').setRequired(false);
@@ -91,7 +91,7 @@ function setDescription(form) {
   form.setDescription(
     "* The fee for students who are not members of the club is $10."
     + "\n\n* If you wish to get a membership, please sign-up here ("+MEMBERSHIP_FORM_URL+") The fee is $40 for the quarter or $100 for the academic year. Payment can be made with Cash, Check, or Paypal using \"Send money to family and friends\" to \"ucdarcherytreasurer@gmail.com.\" (no cards!)"
-    + "\n* Members: UC Davis Sports Clubs requires that you submit a B2H waiver! (https://myrecreation.ucdavis.edu/store/index.aspx?view=activity&Unit=60)"
+    + "\n* Members: UC Davis Sports Clubs requires that you submit a B2H waiver! ("+B2H_URL+")"
     + "\n\n* We will meet at Howard Field, just north of the MU Parking Structure and West of Toomey Track."
     + "\n* Note: If you are in the first session, we need your help with setting up the field. If you are in the second session, we will need your help with taking down the field."
     + "\n* There is free parking at the MU parking structure on weekends, unless there is a special event."
