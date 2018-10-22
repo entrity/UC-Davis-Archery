@@ -153,11 +153,11 @@ function createLessonRoster() {
   var output = [];
   var nFields;
   var fields = [
+    ['paid',             'paid'],
+    ['b2h',              'b2h'],
     ['borrowOR',         'OR'],
     ['borrowCompound',   'CMPD'],
-    ['paid',             'paid'],
     ['tshirt',           'tshirt'],
-    ['b2h',              'b2h'],
     ['email',            'email'],
     ['studentId',        'studentId'],
     ['maxRegistrations', 'maxReg'],
@@ -220,10 +220,10 @@ function createLessonRoster() {
     users[k].unshift(''); // Blank value in which to record attendance
     usersArray.push(users[k]);
   }
-  // Write second output to sheet...
+  // Write second output to sheet (the actual roster sheet)...
   // Format headers
   var headers = fields.map(function (tup) { return tup[1] });
-  headers.unshift('name');
+  var nameColBkwdOffset = headers.unshift('name');
   for (var i = sessions.length - 1; i >= 0; i--) headers.unshift(sessions[i].name);
   headers.unshift('attendance');
   nFields = headers.length;
@@ -235,40 +235,37 @@ function createLessonRoster() {
   Logger.log('1st row');
   Logger.log(usersArray[0]);
   Logger.log(nFields);
-  sheet.getRange(2, 1, usersArray.length, nFields).setValues(usersArray);
+  var dataRange = sheet.getRange(2, 1, usersArray.length, nFields);
+  dataRange.setValues(usersArray);
   Logger.log(spreadsheet.getUrl());
+  // Sort data
+  var nameIdx = headers[headers.length - nameColBkwdOffset];
+  dataRange.sort(nameIdx);
   // Compute totals on spreadsheet
   var colEnd = 1 + usersArray.length;
   var summaryCellData = [];
   var resourceTypes = ['X', 'R', 'L'];
-
-function cellRangeStr(col, rowStart, rowEnd) {
-  Logger.log('cellRangeSTr %s %s %s', col, rowStart, rowEnd);
-  return ''+col+rowStart+':'+col+rowEnd;
-}
-// Create summary cells for X, R, L
-for (var i in resourceTypes) {
-  var t = resourceTypes[i];
-  var row = [t]
+  function cellRangeStr(col, rowStart, rowEnd) {
+    Logger.log('cellRangeSTr %s %s %s', col, rowStart, rowEnd);
+    return ''+col+rowStart+':'+col+rowEnd;
+  }
+  // Create summary cells for X, R, L
+  for (var i in resourceTypes) {
+    var t = resourceTypes[i];
+    var row = [t]
+    for (var j in sessions) {
+      var col = String.fromCharCode(parseInt(66+parseInt(j)));
+      row.push('=countif('+cellRangeStr(col, 2, colEnd)+',"'+t+'")')
+    }
+    summaryCellData.push(row);
+  }
+  // Create summary cells for N00b (first-timers)
+  var row = ['N00b']
   for (var j in sessions) {
     var col = String.fromCharCode(parseInt(66+parseInt(j)));
-    row.push('=countif('+cellRangeStr(col, 2, colEnd)+',"'+t+'")')
+    row.push('=ARRAYFORMULA(sum(if(isblank('+cellRangeStr(col,2,colEnd)+')*(isblank('+cellRangeStr('O',2,colEnd)+')+EQ('+cellRangeStr('O',2,colEnd)+', 0)), 1, 0)))')
   }
   summaryCellData.push(row);
-}
-// Create summary cells for N00b (first-timers)
-var row = ['N00b']
-for (var j in sessions) {
-  
-  var col = String.fromCharCode(parseInt(66+parseInt(j)));
-//  Logger.log('j %s %s %s %s %s %s', j, col, 66+j, 66+parseInt(j), String.fromCharCode(66),String.fromCharCode(66+j));
-  row.push('=ARRAYFORMULA(sum(if(isblank('+cellRangeStr(col,2,colEnd)+')*(isblank('+cellRangeStr('O',2,colEnd)+')+EQ('+cellRangeStr('O',2,colEnd)+', 0)), 1, 0)))')
-}
-summaryCellData.push(row);
-//    ['X', '=countif(B2:B'+(colEnd)+',"X")', '=countif(C2:C'+(colEnd)+',"X")'],
-//    ['R', '=countif(B2:B'+(colEnd)+',"R")', '=countif(C2:C'+(colEnd)+',"R")'],
-//    ['L', '=countif(B2:B'+(colEnd)+',"L")', '=countif(C2:C'+(colEnd)+',"L")'],
-//  ];
   sheet.getRange(4+colEnd, 1, summaryCellData.length, summaryCellData[0].length).setValues(summaryCellData);
   sheet.getRange(4+5+colEnd, 1, 1, 2).setValues([[
     '='+colEnd+' - INDIRECT(ADDRESS(ROW(), COLUMN()+1))',
