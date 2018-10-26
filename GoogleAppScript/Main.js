@@ -49,15 +49,6 @@ function cronJobCreateForm() {
   createForm(dates);
 }
 
-function tmpo() {
-  var ds = [
-    new Date(2018,9,13),
-    new Date(2018,9,14)
-  ];
-  Logger.log(ds);
-  createForm(ds)
-}
-
 function cronJobCloseForm() {
   var form = getForm();
   // Close form

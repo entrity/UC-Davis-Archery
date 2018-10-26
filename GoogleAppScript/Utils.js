@@ -31,6 +31,7 @@ function boilerplate(lineDelimiter) {
   var dates = tmpdatestrs.map(function(s){ return new Date(s) });
   var datestrs = dates.map(function(d) { return Utilities.formatString('%s, %s %d', DAYS[d.getDay()], MONTHS[d.getMonth()], d.getDate()) });
   var text = 
+       '<em>Saturday we will NOT have the usual "Team Practice" because all of the safety officers will be in Berkeley, so please come to Open Practice this week!</em> ' +
 "Sign up for this week's lesson! (See the link below.) You MUST submit the form to be eligible to shoot on a \"lesson\" day."
 +"\n\nThe signup form will close Friday at noon (or earlier, if we notice that all the openings are taken). If you want to attend the lesson, please sign up early!"
 +"\n\nPlease be aware that fall time brings us more signups than we have equipment to accommodate, so we will notify you by email to tell you whether we can accommodate you and when to arrive."

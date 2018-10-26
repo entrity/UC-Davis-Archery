@@ -24,33 +24,19 @@ Membership.prototype.fromSignupForm = function() {
 
 // Return dict of studentID => memberData
 Membership.prototype.fromSpreadsheet = function () {
-  // Get existing student ids from members sheet
-  this.ss = SpreadsheetApp.openById(MEMBERSHIP_SPREADSHEET_ID);
-  this.sheet = this.ss.getSheets()[0];
-  var lastRow = this.sheet.getLastRow();  
-  var sheetData = this.sheet.getRange(2,1,lastRow-1,1+MEMBERSHIP_FIELDS.length).getValues();
-  sheetDict = {};
-  for (var row in sheetData) {
-    var member = {};
-    for (var f in MEMBERSHIP_FIELDS) {
-      var key = MEMBERSHIP_FIELDS[f];
-      member[key] = sheetData[row][f];
-    }
-    sheetDict[member.studentId] = member;
-  }
-  return sheetDict;
+  return new SheetData(MEMBERSHIP_SHEET_ID, 'Sheet1', 'Student ID').dict;
 }
 /* Fetch responses to membership form. Update membership spreadsheet.
   Return dict of studentId => memberData */
 Membership.prototype.updateSpreadsheet = function () {
   var formDict  = this.fromSignupForm();
   var sheetDict = this.fromSpreadsheet();
-  var sheet     = this.sheet;
+  var sheet     = SpreadsheetApp.openById(MEMBERSHIP_SHEET_ID).getSheetByName('Sheet1');
   // Append new members to spreadsheet
   for (var studentId in formDict) {
     if (!sheetDict[studentId]) {
       var rowData = MEMBERSHIP_FIELDS.map(function(f) {return formDict[studentId][f] || ''});
-      this.sheet.appendRow(rowData);
+      sheet.appendRow(rowData);
     }
   }
 }
@@ -86,11 +72,17 @@ SignupForm.prototype.translateFormResponse = function (formResponse) {
   if (/CAN.+attend/i.test(rits[i].getItem().getTitle()))
     signup.waitlist = rits[i++].getResponse().toString().split(/,\s*/).sort(function (a,b) {
       (a == signup.preferredSession) - (b == signup.preferredSession)
+    }).map(function (sessName) {
+      return sessName.replace(/\s*\([0-9]+ openings\)/,'');
     });
     
-  signup.maxRegistrations = parseInt(/\d+/.exec(rits[i++].getResponse())[0]);
+  if (/How many sessions/i.test(rits[i].getItem().getTitle())) {
+//    Logger.log('maxreg %s', rits[i].getResponse());
+    signup.maxRegistrations = parseInt(/\d+/.exec(rits[i++].getResponse())[0]);
+  }
   // Handle fields after dates/sessions
-  signup.isMember       = rits[i++].getResponse() != 'No';
+  if (/paid member/i.test(rits[i].getItem().getTitle()))
+    signup.isMember       = rits[i++].getResponse() != 'No';
   if (rits[i] && /borrow.+bow/.test(rits[i].getItem().getTitle())) {
     signup.borrowBow      = rits[i++].getResponse();
     signup.borrowRightBow = /right/i.test(signup.borrowBow);
@@ -122,6 +114,7 @@ SignupForm.prototype.getSignupData = function () {
   // Update form responses with info from membership sheet
   for (var i in signups) {
     var signup = signups[i];
+    signup.name = signup.name.trim(); // Having students include extra spaces after their name fouled up our automatic search for B2H matches. This trim call fixes that.
     var member = members[signup.studentId];
     var att    = attendance[signup.studentId] || {};
     signup.attendanceCt  = parseInt(att.attendanceCt || 0);
@@ -143,15 +136,19 @@ SignupForm.prototype.getSignupData = function () {
 
 // Create sheet holding edge data from ford fulkerson
 function createLessonRoster() {
+  updateAttendanceCountsFromRosters();
   var data = new SignupForm();
   var signups = data.getSignupData();
   var sessions = data.sessions;
+  for (var i in sessions) {
+   sessions[i].name = sessions[i].name.replace(/\s*\([0-9]+ openings\)/,''); 
+  }
   // Run Ford Fulkerson algorithm to achieve max flow
   var net = new ResidualNetwork(sessions, signups);
   net.fordFulkerson(); // net.users[i].data is signups[i]
   // Prepare output matrix
   var output = [];
-  var nFields;
+  
   var fields = [
     ['paid',             'paid'],
     ['b2h',              'b2h'],
@@ -168,6 +165,8 @@ function createLessonRoster() {
     ['preferredSession', 'preferredSession'],
     ['waitlist',         'waitlist'],
   ];
+  var nFields = 3 + fields.length; // see rowPrefix and rowSuffix below
+Logger.log('%s users %s fields', net.users.length, nFields);
   for (var i in net.users) {
     var user = net.users[i];
     if (/no/i.test(user.data.tshirt)) user.data.tshirt = '';
@@ -178,14 +177,15 @@ function createLessonRoster() {
         var rowSuffix = fields.map(function (tup) { return user.data[tup[0]] || '' });
         var row = rowPrefix.concat(rowSuffix);
         output.push(row);
-        if (0 == i) nFields = row.length;
       }
     }
   }
+Logger.log('nFields %s', nFields);
   // Write edge data to spreadsheet
   var spreadsheet = SpreadsheetApp.openById(ATTENDANCE_SPREADSHEET_ID);
   var sheets = spreadsheet.getSheets();
-  var sheet = sheets[sheets.length - 1];
+  var sheet = spreadsheet.getSheetByName('Sheet 1');
+Logger.log('range %s %s', output.length, nFields);
   sheet.getRange(1, 2, output.length, nFields).setValues(output);
   Logger.log(sheet.getName());
   // New sheet for this week
@@ -239,7 +239,7 @@ function createLessonRoster() {
   dataRange.setValues(usersArray);
   Logger.log(spreadsheet.getUrl());
   // Sort data
-  var nameIdx = headers[headers.length - nameColBkwdOffset];
+  var nameIdx = 1 + headers.length - nameColBkwdOffset;
   dataRange.sort(nameIdx);
   // Compute totals on spreadsheet
   var colEnd = 1 + usersArray.length;
@@ -271,8 +271,13 @@ function createLessonRoster() {
     '='+colEnd+' - INDIRECT(ADDRESS(ROW(), COLUMN()+1))',
     '=ARRAYFormula(sum(if((ISBLANK(B2:B'+(colEnd)+')*isblank(C2:c'+(colEnd)+')), 1, 0)))',
   ]]);
+  // Set column widths
+  sheet.setColumnWidths(1, 3, 24);
+  sheet.autoResizeColumn(4);
+  sheet.setColumnWidths(5, 5, 24);
+  for (var c = 11; c < 20; c++)
+    sheet.autoResizeColumn(c);
 }
-
 
 // For mapping signup sheet data to spreadsheet
 MEMBERSHIP_KEY_MAP = {
@@ -285,3 +290,13 @@ MEMBERSHIP_KEY_MAP = {
   'Membership Type': 'memberType',
   'timestamp':       'signupTimestamp',
 };
+
+function sadf() {
+ var spreadsheet = SpreadsheetApp.openById(ATTENDANCE_SPREADSHEET_ID);
+  var sheets = spreadsheet.getSheets();
+  var sheet = sheets[0];
+  sheet.getDataRange().setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+  for (var c = 11; c < 20; c++)
+    sheet.autoResizeColumn(c);
+  
+}

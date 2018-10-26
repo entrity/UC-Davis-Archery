@@ -1,6 +1,6 @@
 MEMBERSHIP_FIELDS = ['firstName','lastName','isB2HDone','isPaid','attendanceCt','signupCt','paymentType','signupTimestamp','class','phone','studentId','memberType','email',]
 MEMBERSHIP_STUDENT_ID_COL = 1 + MEMBERSHIP_FIELDS.indexOf('studentId');
-N_BALES             = 15;
+N_BALES             = 12;
 N_BALE_OPENINGS     = 4 * N_BALES;
 N_BOWS_LEFT_HANDED  = 4;
 N_BOWS_RIGHT_HANDED = 30;
@@ -66,7 +66,7 @@ Object.defineProperties(ResidualNetwork.prototype, {
 					var sess = user.data.waitlist[j];
 					// Ensure sess is a valid key in this.X
 					if (! this.X.hasOwnProperty(sess) ) {
-						Logger.log('ERROR.');
+                      Logger.log('ERROR. Sess not found in net.X:');
 						Logger.log(sess);
 						Logger.log(j);
 						Logger.log(user.data.waitlist);

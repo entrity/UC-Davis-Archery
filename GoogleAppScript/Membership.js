@@ -21,22 +21,19 @@ function copyDataToMembershipSheet() {
   var attDict = {}; // name => Member
   for (var i in att) {
     attDict[att[i].name] = att[i];
-//    Logger.log(att[i].name)
   }
-  
   var sm = SpreadsheetApp.openById(MEMBERSHIP_SHEET_ID);
-  var sms = sm.getSheets()[0];
+  var sms = sm.getSheetByName('Sheet1');
   var range = sms.getDataRange();
   var mem = range.getValues();
   for (var i in mem) {
     if (0 == i) continue;
-    Logger.log(mem[i][0]+' '+mem[i][1])
+    // Logger.log(mem[i][0]+' '+mem[i][1])
     var a = attDict[mem[i][0]+' '+mem[i][1]];
     if (!a) continue;
     if (!mem[i][10]) mem[i][10] = a.studentId;
     if (!mem[i][12]) mem[i][12] = a.email;
   }
-  
   range.setValues(mem);
 }
 
@@ -94,6 +91,7 @@ function SheetData (ssId, sheetName, dictKeyColName) {
         var col = self.headers[c];
         if (/first.+last.+name/i.test(col)) col = 'name';
         else if (/student.*id/i.test(col))  col = 'studentId';
+        else if (/paid/i.test(col))  col = 'isPaid';
         obj[col] = val;
         return obj;
       }, {});
@@ -192,7 +190,7 @@ Build sheet of attendance counts and signup counts, using the
 first week's attendance sheet and the several tabs from the 
 attendance sheet that covers all later weeks.
 */
-function nutsToSoup() {
+function updateAttendanceCountsFromRosters() {
   var data = getAllWeeksAttendance();
 //  Logger.log(data)
   var fields = ['studentId', 'attendanceCt', 'signupCt', 'name', 'email'];
@@ -224,7 +222,7 @@ function nutsToSoup() {
     var membershipRow = sheet1Data[r];
     var name = Utilities.formatString('%s %s', membershipRow[0], membershipRow[1]);
     if (name2Attendance[name]) {
-      Logger.log('%s %s %s', name, isBlank(membershipRow[10]), (membershipRow[10]));
+      // Logger.log('%s %s %s', name, isBlank(membershipRow[10]), (membershipRow[10]));
       if (isBlank(membershipRow[10])) membershipRow[10] = name2Attendance[name].studentId; // studentId
       if (isBlank(membershipRow[12])) membershipRow[12] = name2Attendance[name].email; // email
     } else {

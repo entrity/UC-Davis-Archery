@@ -1,2 +1,6 @@
 quinesrc
 aggierc
+tmp.*
+*.tmp
+tmp
+*sent.tsv

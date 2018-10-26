@@ -65,7 +65,7 @@ function dates2Choices(item, dates) {
   var choices = [];
   var sessions = dates2Sessions(dates);
   for (var i in sessions) {
-    choices.push(item.createChoice(sessions[i] + Utilities.formatString(' (%d openings)', CLASS_CAPACITY)));
+    choices.push(item.createChoice(sessions[i]));
   }
   return choices;
 }
