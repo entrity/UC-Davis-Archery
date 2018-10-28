@@ -1,0 +1,47 @@
+# Usage (BCC):
+#	echo 'Here is the email body' | \
+#	REPLYTO="ucdaggiearchery@gmail.com" mutt \
+#		-F 365ucdavisrc \
+#		-s 'This is the subject' \
+#		-b "recipient1@domain.tld" \
+#		-b "recipient2@domain.tld" \
+#		-b ...
+
+# Usage (To):
+#	echo 'Here is the email body' | \
+#	REPLYTO="ucdaggiearchery@gmail.com" mutt \
+#		-F 365ucdavisrc \
+#		-s 'This is the subject' \
+#		-- "recipient@domain.tld"
+
+# References:
+#	https://github.com/ork/mutt-office365/blob/master/muttrc
+#	https://gitlab.com/muttmua/mutt/wikis/MuttGuide/UseIMAP
+#	https://unix.stackexchange.com/questions/296810/syntax-of-smtp-url-in-muttrc
+
+source "secret365muttrc" # Should define my_pass (and must escape dollar signs, if any)
+
+# Global auth
+set my_user="archeryclub@ou.ad3.ucdavis.edu"
+
+# Global conf
+set ssl_starttls = yes
+set content_type = "text/html"
+
+# SMTP
+set smtp_pass="$my_pass"
+set smtp_url="smtp://$my_user@smtp.office365.com:587/"
+set from="archeryclub@ucdavis.edu"
+set realname="UC Davis Archery"
+set hostname = "ou.ad3.ucdavis.edu"
+set smtp_authenticators = "login"
+
+# IMAP
+set imap_user="$my_user"
+set imap_pass="$my_pass"
+set folder="imaps://outlook.office365.com/"
+set spoolfile=+INBOX
+# Define the = shortcut, and the entry point for the folder browser (c?)
+set folder="imaps://outlook.office365.com/INBOX"
+set record="=Sent"
+set postponed="=Drafts"
