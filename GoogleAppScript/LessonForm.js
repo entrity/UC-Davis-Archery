@@ -18,6 +18,7 @@ function createForm(dates) {
   form.addTextItem().setTitle('Student ID#').setRequired(true);
   // Would you like to buy a club T-Shirt? (Skip this question if not.) (Small, Medium, Large, X-Large)
   item = form.addMultipleChoiceItem().setTitle('Would you like to buy a club T-Shirt for $15?').setRequired(false);
+  item.setHelpText('To pay for and collect your T-shirt, please ask to speak with our treasurer during check-in.');
   item.setChoices([
       item.createChoice('Small'),
       item.createChoice('Medium'),
@@ -83,6 +84,8 @@ function createForm(dates) {
 function getForm() {
   var properties = PropertiesService.getScriptProperties();
   var formId = properties.getProperty('FORM_ID');
+  if (!formId)
+    return null;
   var form = FormApp.openById(formId);
   return form;
 }

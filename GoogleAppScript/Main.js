@@ -10,17 +10,37 @@ LOGFILE_ID                = '1wIxpjS1rgIrc0uBQqoC-04c_f-izMClRWUSDazsYm2M';
 MEMBERSHIP_FORM_ID        = '1z7FNWHneU1jLYVhXcMR_7TcHbvAL_pKER-NwIq7qS-g';
 MEMBERSHIP_SPREADSHEET_ID = '1oXwQN1Bf22RCARJ8Uz5RHxSb_-J8g8S86UAhNZLbhaU';
 ATTENDANCE_SPREADSHEET_ID = '11TvCpEpz-oK0Ag5ErLJ4s8z9SfRu1IGwieTq0eqbLgQ';
+ADMIN_EMAIL               = 'mhanderson@ucdavis.edu';
 
 // TODO:
 // - implement Friday-night spreadsheet creation
 // - updateMembershipSpreadsheet
 
 
-function composeFacebookPost() {
+function mainComposeFacebookPost() {
   var formUrl = getLog(-1, COL_FORM_URL);
-  var text = Utilities.formatString("%s\n\nLesson Sign-up: %s", boilerplate('\n'), formUrl);
+  var bp = boilerplate('\n').replace(/<\/p><p>/ig,'\n\n').replace(/<p>|<\/p>/ig,'').replace(/<br>/ig,'\n');
+  var text = Utilities.formatString("%s\n\nLesson Sign-up: %s", bp, formUrl);
   Logger.log(text);
   return text;
+}
+
+function mainCreateLessonRoster() {
+  createLessonRoster();
+}
+
+function mainEmailNoShows () {
+  var data = new SheetData(ATTENDANCE_SPREADSHEET_ID, 0, 'email').dict;
+  var noshowEmails = [];
+  for (var email in data) {
+    var rec = data[email];
+    if (!rec['attendance'] || !rec['attendance'].toString().trim())
+      noshowEmails.push(email);
+  }
+  var mutt = 'echo -e "We missed you this weekend. Hope to see you next time"\'!\'"\\n\\nYour friend,\\nArchie the archery-club bot" | REPLYTO=ucdaggiearchery@gmail.com mutt -F 365muttrc '
+  for (var i in noshowEmails) mutt += ' -b ' + noshowEmails[i];
+  mutt += ' -s "Missed you at practice!"';
+  Logger.log(mutt);
 }
 
 /*
@@ -51,23 +71,51 @@ function cronJobCreateForm() {
 
 function cronJobCloseForm() {
   var form = getForm();
-  // Close form
-  form.setAcceptingResponses(false);
-  // Update membership spreadsheet from the membership sign-up form
-  var membershipSheet = updateMembershipSpreadsheet();
-  // Make a spreadsheet using this form's responses and the membership spreadsheet
-  createAttendanceSheet();
+  if (form) {
+    // Close form
+    form.setAcceptingResponses(false);
+    // Update membership spreadsheet from the membership sign-up form
+//    var membershipSheet = updateMembershipSheetFromForm();
+    // Make a spreadsheet using this form's responses and the membership spreadsheet
+    mainCreateLessonRoster();
+    // Email mutt commands to self
+    var shellBatchOfMuttCommands = buildAttendanceEmails().reduce(function (acc, obj, idx) {
+      return acc + '<br />' + obj.mutt;
+    }, '');
+    MailApp.sendEmail({
+      to: ADMIN_EMAIL,
+      subject: 'Mutt batch for weekly lesson (html)',
+      body: shellBatchOfMuttCommands,
+    });
+    // Clear propoerty FORM_ID
+    var properties = PropertiesService.getScriptProperties();
+    properties.deleteProperty('FORM_ID');
+  }
 }
 
 function cronJobSendEmail() {
-  var curStatus = getLog(-1, COL_EMAIL_STATUS);
-  if (curStatus != 'email sent') {
-    var datesString = getLog(-1, COL_DATESTRING);
-    var formUrl = getLog(-1, COL_FORM_URL);
-    sendSignupEmail(formUrl, datesString);
-    log(COL_EMAIL_STATUS, 'email sent', -1);
-    Logger.log('email send attempted');
-  } else {
-    Logger.log('No email send attempted. Already sent.');
+  var form = getForm();
+  if (form) {
+    var formUrl = form.getPublishedUrl();
+    var shortUrl = form.shortenFormUrl(formUrl);
+    Logger.log(formUrl);
+    Logger.log(shortUrl);
+    var curStatus = getLog(-1, COL_EMAIL_STATUS);
+    if (curStatus != 'email sent') {
+      var datesString = getLog(-1, COL_DATESTRING);
+      var formUrl = getLog(-1, COL_FORM_URL);
+      sendSignupEmail(formUrl, datesString);
+      log(COL_EMAIL_STATUS, 'email sent', -1);
+      Logger.log('email send attempted');
+    } else {
+      Logger.log('No email send attempted. Already sent.');
+    }
   }
+}
+
+function tmpMain() {
+ Logger.log(arguments.length);
+  var [a,b,c] = arguments;
+  Logger.log(a);
+//  Logger.log(arguments[0]); 
 }

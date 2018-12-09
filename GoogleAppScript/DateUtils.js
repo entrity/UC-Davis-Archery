@@ -69,3 +69,4 @@ function dates2Choices(item, dates) {
   }
   return choices;
 }
+

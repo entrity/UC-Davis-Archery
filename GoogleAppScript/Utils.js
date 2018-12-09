@@ -8,6 +8,37 @@ DATES_DELIMITER = ' & ';
 
 LOG_ROW = null;
 
+function SheetData (ssId, sheetNameOrIdx, dictKeyColNames) {
+  var self = this;
+  this.ss      = SpreadsheetApp.openById(ssId);
+  if (typeof(sheetNameOrIdx) == 'string')
+    this.sheet   = this.ss.getSheetByName(sheetNameOrIdx);
+  else
+    this.sheet   = this.ss.getSheets()[sheetNameOrIdx];
+  var all      = this.all     = this.sheet.getDataRange().getValues();
+  var headers  = this.headers = this.all[0];
+  if (typeof(dictKeyColNames) == 'string')
+    dictKeyColNames = [dictKeyColNames];
+  this.keyIdxs = dictKeyColNames.map(function (colName) { return self.headers.indexOf(colName) });
+  this.data    = this.all.slice(1);
+  this.dict    = this.data.reduce(function (acc, row) {
+    var key = self.keyIdxs.map(function (idx) { return row[idx] }).join(' ');
+    if (key)
+      acc[key] = row.reduce(function (obj, val, c) {
+        var col = self.headers[c];
+        if (/first.+last.+name/i.test(col)) col = 'name';
+        else if (/student.*id/i.test(col))  col = 'studentId';
+        else if (/paid/i.test(col))  col = 'isPaid';
+        obj[col] = val;
+        if (/Membership Type/i.test(col) && !obj.isPaid) {
+          obj.isPaid = /fall|\$100|year|exempt/i.test(val);
+        }
+        return obj;
+      }, {});
+    return acc;
+  }, {});
+}
+
 // Get logging spreadsheet
 function getLog(row, col) {
   var ss = SpreadsheetApp.openById(LOGFILE_ID)
@@ -31,13 +62,12 @@ function boilerplate(lineDelimiter) {
   var dates = tmpdatestrs.map(function(s){ return new Date(s) });
   var datestrs = dates.map(function(d) { return Utilities.formatString('%s, %s %d', DAYS[d.getDay()], MONTHS[d.getMonth()], d.getDate()) });
   var text = 
-       '<em>Saturday we will NOT have the usual "Team Practice" because all of the safety officers will be in Berkeley, so please come to Open Practice this week!</em> ' +
-"Sign up for this week's lesson! (See the link below.) You MUST submit the form to be eligible to shoot on a \"lesson\" day."
-+"\n\nThe signup form will close Friday at noon (or earlier, if we notice that all the openings are taken). If you want to attend the lesson, please sign up early!"
-+"\n\nPlease be aware that fall time brings us more signups than we have equipment to accommodate, so we will notify you by email to tell you whether we can accommodate you and when to arrive."
-+"\n\nLesson Times:"
+"<p>Sign up for this week's lesson! (See the link below.) You MUST submit the form to be eligible to shoot on a \"lesson\" day.</p>"
++"<p>The signup form will close Friday at noon (or earlier, if we notice that all the openings are taken). If you want to attend the lesson, please sign up early!</p>"
++"<p>Please be aware that fall time brings us more signups than we have equipment to accommodate, so we will notify you by email to tell you whether we can accommodate you and when to arrive.</p>"
++"<p>Lesson Times:</p>"
   for (var i in datestrs)
-    text += Utilities.formatString(lineDelimiter + "%30s from %8s to %8s" + lineDelimiter + "%30s from %8s to %8s",
+    text += Utilities.formatString("%30s from %8s to %8s<br>%30s from %8s to %8s<br>",
                                     datestrs[i], '9:15am', '11:15am', datestrs[i], '11:15am', '1:00pm');
   return text;
 }

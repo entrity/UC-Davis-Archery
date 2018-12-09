@@ -171,14 +171,15 @@ function cmpEdgesFromUserToSink (edgeA, edgeB) {
 }
 
 
+// Test the Ford-Fulkerson implementation
 function tdt() {
 	var net = new ResidualNetwork([
-		{registrations:[], nRightBows:30, name:'2018-10-14 9:15am (36 openings)', nLeftBows:4, nTargets:60},
-		{registrations:[], nRightBows:30, name:'2018-10-14 11:15am (36 openings)', nLeftBows:4, nTargets:60},
+		{registrations:[], nRightBows:30, name:'2018-10-14 9:15am', nLeftBows:4, nTargets:60},
+		{registrations:[], nRightBows:30, name:'2018-10-14 11:15am', nLeftBows:4, nTargets:60},
 	],[
-		{borrowBow:false, registrations:[], preferredSession:'2018-10-14 9:15am (36 openings)', isMember:true, weekSessCt:0, studentId:914973045, borrowRightBow:false, tshirt:'(not this week)', borrowLeftBow:false, name:'Christopher Nguyen', waitlist:['2018-10-14 9:15am (36 openings)', '2018-10-14 11:15am (36 openings)'], maxRegistrations:1, email:'aamcqueary@ucdavis.edu', timestamp:new Date('Wed Oct 10 06:01:20 GMT-07:00 2018')},
-		{borrowBow:false, registrations:[], preferredSession:'2018-10-14 9:15am (36 openings)', isMember:true, weekSessCt:0, studentId:914973045, borrowRightBow:false, tshirt:'(not this week)', borrowLeftBow:false, name:'Alexis McQueary', waitlist:['2018-10-14 9:15am (36 openings)', '2018-10-14 11:15am (36 openings)'], maxRegistrations:2, email:'aamcqueary@ucdavis.edu', timestamp:new Date('Wed Oct 10 05:01:20 GMT-07:00 2018')},
-		{borrowBow:true, registrations:[], preferredSession:'2018-10-14 9:15am (36 openings)', isMember:true, weekSessCt:0, studentId:915355248, borrowRightBow:true, tshirt:'Medium', borrowLeftBow:false, name:'Kylie Sherman', waitlist:['2018-10-14 9:15am (36 openings)'], maxRegistrations:1, email:'krsherman@ucdavis.edu', timestamp:new Date('Wed Oct 10 06:32:19 GMT-07:00 2018')},
+		{borrowBow:false, registrations:[], preferredSession:'2018-10-14 9:15am', isMember:true, weekSessCt:0, studentId:914973045, borrowRightBow:false, tshirt:'(not this week)', borrowLeftBow:false, name:'Christopher Nguyen', waitlist:['2018-10-14 9:15am (36 openings)', '2018-10-14 11:15am (36 openings)'], maxRegistrations:1, email:'aamcqueary@ucdavis.edu', timestamp:new Date('Wed Oct 10 06:01:20 GMT-07:00 2018')},
+		{borrowBow:false, registrations:[], preferredSession:'2018-10-14 9:15am', isMember:true, weekSessCt:0, studentId:914973045, borrowRightBow:false, tshirt:'(not this week)', borrowLeftBow:false, name:'Alexis McQueary', waitlist:['2018-10-14 9:15am (36 openings)', '2018-10-14 11:15am (36 openings)'], maxRegistrations:2, email:'aamcqueary@ucdavis.edu', timestamp:new Date('Wed Oct 10 05:01:20 GMT-07:00 2018')},
+		{borrowBow:true, registrations:[], preferredSession:'2018-10-14 9:15am', isMember:true, weekSessCt:0, studentId:915355248, borrowRightBow:true, tshirt:'Medium', borrowLeftBow:false, name:'Kylie Sherman', waitlist:['2018-10-14 9:15am (36 openings)'], maxRegistrations:1, email:'krsherman@ucdavis.edu', timestamp:new Date('Wed Oct 10 06:32:19 GMT-07:00 2018')},
 	]);
 	net.fordFulkerson();
 	for (var i in net.users) {

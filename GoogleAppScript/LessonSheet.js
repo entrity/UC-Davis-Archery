@@ -23,14 +23,24 @@ Membership.prototype.fromSignupForm = function() {
 }
 
 // Return dict of studentID => memberData
-Membership.prototype.fromSpreadsheet = function () {
-  return new SheetData(MEMBERSHIP_SHEET_ID, 'Sheet1', 'Student ID').dict;
+Membership.prototype.fromSpreadsheets = function () {
+  var mainDict = new SheetData(MEMBERSHIP_SHEET_ID, 'Sheet1', 'Student ID').dict;
+  // var nameDict = new SheetData(MEMBERSHIP_SHEET_ID, 'Sheet1', ['First name', 'Last name']).dict;
+  var feesDict = new SheetData(MEMBERSHIP_SHEET_ID, 'Membership Fees', 'Student ID').dict;
+  var keys = Object.keys(mainDict);
+  for (var i in keys) {
+    var studentId = keys[i];
+    var main = mainDict[studentId];
+    var fees = feesDict[studentId];
+    if (fees) main.isPaid = fees.isPaid;
+  }
+  return mainDict;
 }
 /* Fetch responses to membership form. Update membership spreadsheet.
   Return dict of studentId => memberData */
 Membership.prototype.updateSpreadsheet = function () {
   var formDict  = this.fromSignupForm();
-  var sheetDict = this.fromSpreadsheet();
+  var sheetDict = this.fromSpreadsheets();
   var sheet     = SpreadsheetApp.openById(MEMBERSHIP_SHEET_ID).getSheetByName('Sheet1');
   // Append new members to spreadsheet
   for (var studentId in formDict) {
@@ -39,6 +49,10 @@ Membership.prototype.updateSpreadsheet = function () {
       sheet.appendRow(rowData);
     }
   }
+}
+
+function updateMembershipSheetFromForm () {
+  new Membership().updateSpreadsheet();
 }
 
 function Session (name) {
@@ -77,7 +91,6 @@ SignupForm.prototype.translateFormResponse = function (formResponse) {
     });
     
   if (/How many sessions/i.test(rits[i].getItem().getTitle())) {
-//    Logger.log('maxreg %s', rits[i].getResponse());
     signup.maxRegistrations = parseInt(/\d+/.exec(rits[i++].getResponse())[0]);
   }
   // Handle fields after dates/sessions
@@ -101,7 +114,7 @@ SignupForm.prototype.getSignupData = function () {
   // Update membership sheet & get dict of studentId => memberData
   var mm = new Membership();
   mm.updateSpreadsheet();
-  var members = mm.fromSpreadsheet();
+  var members = mm.fromSpreadsheets();
   // Update form responses with info from attendance sheet
   var attendance = new SheetData(MEMBERSHIP_SHEET_ID, 'Attendees', 'studentId').dict;
   // Get signup form responses
@@ -123,7 +136,7 @@ SignupForm.prototype.getSignupData = function () {
       signup.paid          = member.isPaid;
       signup.term          = member.memberType;
     }
-    signup.b2h             = b2h[signup.name] || '';
+    signup.b2h             = b2h[signup.name.toLowerCase()] || ''; // Use downcase b/c of examples like Dongyeon, whose name is "DongYeon" in Sports Clubs records
     dict[signup.studentId] = signup;
   }
   // Turn dict into array
@@ -143,6 +156,7 @@ function createLessonRoster() {
   for (var i in sessions) {
    sessions[i].name = sessions[i].name.replace(/\s*\([0-9]+ openings\)/,''); 
   }
+  Logger.log('step 2');
   // Run Ford Fulkerson algorithm to achieve max flow
   var net = new ResidualNetwork(sessions, signups);
   net.fordFulkerson(); // net.users[i].data is signups[i]
@@ -150,6 +164,7 @@ function createLessonRoster() {
   var output = [];
   
   var fields = [
+    ['attendanceCt',     'attendanceCt'],
     ['paid',             'paid'],
     ['b2h',              'b2h'],
     ['borrowOR',         'OR'],
@@ -160,13 +175,12 @@ function createLessonRoster() {
     ['maxRegistrations', 'maxReg'],
     ['term',             'term'],
     ['timestamp',        'timestamp'],
-    ['attendanceCt',     'attendanceCt'],
     ['signupCt',         'signupCt'],
     ['preferredSession', 'preferredSession'],
     ['waitlist',         'waitlist'],
   ];
   var nFields = 3 + fields.length; // see rowPrefix and rowSuffix below
-Logger.log('%s users %s fields', net.users.length, nFields);
+  Logger.log('%s users %s fields', net.users.length, nFields);
   for (var i in net.users) {
     var user = net.users[i];
     if (/no/i.test(user.data.tshirt)) user.data.tshirt = '';
@@ -180,12 +194,12 @@ Logger.log('%s users %s fields', net.users.length, nFields);
       }
     }
   }
-Logger.log('nFields %s', nFields);
+  Logger.log('nFields %s', nFields);
   // Write edge data to spreadsheet
   var spreadsheet = SpreadsheetApp.openById(ATTENDANCE_SPREADSHEET_ID);
   var sheets = spreadsheet.getSheets();
   var sheet = spreadsheet.getSheetByName('Sheet 1');
-Logger.log('range %s %s', output.length, nFields);
+  Logger.log('range %s %s', output.length, nFields);
   sheet.getRange(1, 2, output.length, nFields).setValues(output);
   Logger.log(sheet.getName());
   // New sheet for this week
@@ -261,11 +275,14 @@ Logger.log('range %s %s', output.length, nFields);
   }
   // Create summary cells for N00b (first-timers)
   var row = ['N00b']
+  var attendanceCtCol = 'E';
   for (var j in sessions) {
     var col = String.fromCharCode(parseInt(66+parseInt(j)));
-    row.push('=ARRAYFORMULA(sum(if(isblank('+cellRangeStr(col,2,colEnd)+')*(isblank('+cellRangeStr('O',2,colEnd)+')+EQ('+cellRangeStr('O',2,colEnd)+', 0)), 1, 0)))')
+    row.push(Utilities.formatString('=COUNTA(FILTER(%s, EQ(0,%s)+ISBLANK(%s)))',
+      cellRangeStr(col,2,colEnd), cellRangeStr(attendanceCtCol,2,colEnd), cellRangeStr(attendanceCtCol,2,colEnd)));
   }
   summaryCellData.push(row);
+  // Create summary cells for number of people accepted vs denied
   sheet.getRange(4+colEnd, 1, summaryCellData.length, summaryCellData[0].length).setValues(summaryCellData);
   sheet.getRange(4+5+colEnd, 1, 1, 2).setValues([[
     '='+colEnd+' - INDIRECT(ADDRESS(ROW(), COLUMN()+1))',
@@ -290,13 +307,3 @@ MEMBERSHIP_KEY_MAP = {
   'Membership Type': 'memberType',
   'timestamp':       'signupTimestamp',
 };
-
-function sadf() {
- var spreadsheet = SpreadsheetApp.openById(ATTENDANCE_SPREADSHEET_ID);
-  var sheets = spreadsheet.getSheets();
-  var sheet = sheets[0];
-  sheet.getDataRange().setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
-  for (var c = 11; c < 20; c++)
-    sheet.autoResizeColumn(c);
-  
-}

@@ -1,6 +1,24 @@
 var FIRST_WEEK_ATTENDANCE_SHEET_ID = '1deZqi4z_zE_0hAPFklBUJi8KGuSzHzf2XaRwlxUIEH0';
 var MEMBERSHIP_SHEET_ID = '1oXwQN1Bf22RCARJ8Uz5RHxSb_-J8g8S86UAhNZLbhaU';
 
+function getNewMemberships(timestamp) {
+  var form = FormApp.openById(MEMBERSHIP_FORM_ID);
+  if (!timestamp) timestamp = new Date(new Date() - 7*24*60*60*1000);
+  var newResponses = form.getResponses(timestamp);
+  var newDicts = newResponses.map(function (response) {
+    var dict = {};
+    // todo
+    return dict;
+  });
+  return newDicts;
+}
+
+function checkForNewMemberships() {
+  var newResponses = getNewMemberships();
+  Logger.log(newResponses.length);
+  return (newResponses.length > 0);
+}
+
 function Member (name, studentId, email) {
   this.name = name;
   this.studentId = studentId;
@@ -58,6 +76,7 @@ function getMembershipDicts() {
 }
 
 // Return dict of "last, first" => [1, undefined]
+// NB: names (keys) in this dict are ALL lowercase!
 function getCompletedB2H() {
   var ss = SpreadsheetApp.openById(MEMBERSHIP_SHEET_ID);
   var sheet = ss.getSheetByName('B2H Completed');
@@ -67,36 +86,10 @@ function getCompletedB2H() {
     var invertedName = data[r][0];
     var match = /^\s*([^,]+),\s*([^,]+)\s*$/.exec(invertedName);
     var name = match[2]+' '+match[1];
-    out[name] = true;
+    out[name.toLowerCase()] = true; // Use downcase b/c of examples like Dongyeon, whose name is "DongYeon" in Sports Clubs records
   }
 //  Logger.log(out);
   return out;
-}
-
-function tmp(){
-var attendance = new SheetData(MEMBERSHIP_SHEET_ID, 'Sheet1', 'StudentId').dict;
-}
-function SheetData (ssId, sheetName, dictKeyColName) {
-  var self = this;
-  this.ss      = SpreadsheetApp.openById(ssId);
-  this.sheet   = this.ss.getSheetByName(sheetName);
-  this.all     = this.sheet.getDataRange().getValues();
-  this.headers = this.all[0];
-  this.keyIdx  = this.headers.indexOf(dictKeyColName);
-  this.data    = this.all.slice(1);
-  this.dict    = this.data.reduce(function (acc, row) {
-    var key = row[self.keyIdx];
-    if (key)
-      acc[key] = row.reduce(function (obj, val, c) {
-        var col = self.headers[c];
-        if (/first.+last.+name/i.test(col)) col = 'name';
-        else if (/student.*id/i.test(col))  col = 'studentId';
-        else if (/paid/i.test(col))  col = 'isPaid';
-        obj[col] = val;
-        return obj;
-      }, {});
-    return acc;
-  }, {});
 }
 
 // Dict is studentid => {}
@@ -105,7 +98,7 @@ function WeekAttendance(sheetName) {
   for (var studentId in this.dict) {
 //    Logger.log('studentId %s' ,studentId)
     var obj = this.dict[studentId];
-    obj.attendanceCt = parseInt(obj.attendance);
+    obj.attendanceCt = parseInt(obj.attendance) || 0;
     obj.signupCt = 0;
     for (var col in obj) // check column names from spreadsheet
       if (/\d{4}.\d{2}.\d{2}/.test(col) && obj[col] && obj[col].trim().length)
@@ -154,9 +147,7 @@ function getFirstWeekAttendance() {
 function getAllWeeksAttendance() {
   // Helper function
   function mergeWeekAttendance(out, weekData) {
-//    Logger.log('called merge %s', weekData)
     for (var studentId in weekData) {
-//      Logger.log(studentId)
       if (out[studentId]) {
         out[studentId].signupCt     += weekData[studentId].signupCt;
         out[studentId].attendanceCt += weekData[studentId].attendanceCt;
