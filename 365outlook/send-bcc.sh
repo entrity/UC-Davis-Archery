@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Read list of email addresses from bcc.txt
+# Read body of email from body.html
+# Compose a single email with no 'TO' address
+# Send email bcc-ing all listed addresses.
+
 if (($#)); then
 	subj="$1"
 	bcc=()
@@ -17,7 +22,7 @@ if (($#)); then
 		>&2 echo need body for email
 		exit 6
 	fi
-	tr -d '\n' < body.html | mutt -F 365ucdavisrc -s "$subj" "${bcc[@]}"
+	tr -d '\n' < body.html | REPLYTO=ucdaggiearchery@gmail.com mutt -F 365muttrc -s "$subj" "${bcc[@]}"
 else
 	>&2 echo need arg for email SUBJECT
 	exit 7
