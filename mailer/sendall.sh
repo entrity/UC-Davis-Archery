@@ -1,11 +1,12 @@
 #!/bin/bash
 
+LIMIT=888
 LOG=log-sent.tsv
 ERRLOG=err-sent.tsv
 touch "$LOG"
 touch "$ERRLOG"
 count=0
-diff -w "$LOG" email-addresses.tsv \
+diff -w <(sort "$LOG") <(sort email-addresses.tsv) \
 | grep -P '^>' \
 | perl -pe 's/^> //' \
 | while read -r line; do
@@ -17,13 +18,13 @@ diff -w "$LOG" email-addresses.tsv \
 		echo "ALREADY FAILED $line"
 		continue
 	fi
-	if [[ $(wc -l "$LOG"|cut -d' ' -f1) -ge 88 ]]; then break; fi
-	echo line $line
+	if [[ $(wc -l "$LOG"|cut -d' ' -f1) -ge $LIMIT ]]; then break; fi
+	echo "== $line"
 	name="$(cut -f1 <<< "$line")"
 	home="$(cut -f2 <<< "$line")"
 	IFS=$'\t' read -r -a addrs < <(cut -f3- <<< "$line")
 	echo -e "\taddrs ${addrs[@]}"
-	if ./sendone.sh aggierc "$name" "${addrs[@]}"; then
+	if ./sendone.sh "$name" "${addrs[@]}"; then
 		echo "$line" >> "$LOG"
 	else
 		code=$?
