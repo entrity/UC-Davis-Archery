@@ -25,7 +25,23 @@ Object.defineProperties(Edge.prototype, {
 		},
 	},
 });
-
+/*
+	sessions is an array of objects: {
+		name: string (arbitrary)
+	}
+	users is an array of objects {
+		name: string (arbitrary)
+		data: {
+			waitlist: [array of strings matching sessions[i].name]
+			maxRegistrations : int
+			borrowBow      : bool
+			borrowRightBow : bool
+			borrowLeftBow  : bool
+			timestamp: date of when weekly signup form was submitted
+			isMember: bool
+		}
+	}
+*/
 function ResidualNetwork (sessions, users) {
 	this.users    = users.map(function (u) { return new Node(u, u.name) });
 	this.sessions = sessions;
