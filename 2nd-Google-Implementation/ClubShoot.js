@@ -2,7 +2,8 @@ var ClubShoot = {};
 
 (function () {
 
-	SPREADSHEET_ID = '';
+	SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/11TvCpEpz-oK0Ag5ErLJ4s8z9SfRu1IGwieTq0eqbLgQ/edit#gid=594266922'
+	SPREADSHEET_ID = '11TvCpEpz-oK0Ag5ErLJ4s8z9SfRu1IGwieTq0eqbLgQ';
 
 	COL_DATE = 0;
 	COL_STATUS = 1;
@@ -50,6 +51,106 @@ var ClubShoot = {};
 			sessionLabels.push( dS + ' 11:15am' );
 		}
 		return sessionLabels;
+	}
+	function getSignupsAndSessionsFromForm() {
+		var form = ClubShoot.getForm();
+		if (form) {
+			var sessions = {}; // Dict of session labels
+			// Make map of form items
+			var items = form.getItems().reduce(function(acc,it){
+				var tit  = it.getTitle();
+				if (/name/i.test(tit))
+					acc.name = it;
+				else if (/student.*id/i.test(tit))
+						acc.studentId = it;
+				else if (/t.*shirt/i.test(tit))
+						acc.tShirt = it;
+				else if (/most like to attend/i.test(tit))
+						acc.preferredSession = it;
+				else if (/can attend/i.test(tit))
+						acc.allSessions = it;
+				else if (/how many sessions/i.test(tit))
+						acc.maxRegistrations = it;
+				else if (/borrow.*bow/i.test(tit))
+						acc.borrowBow = it;
+				else if (/use a sight/i.test(tit))
+						acc.borrowOR = it;
+				else if (/use a compound/i.test(tit))
+						acc.borrowCompound = it;
+				return acc;
+			}, {});
+			// Make list of form responses
+			function toBool(val) { return /yes/i.test(val) }
+			function toInt(val) { return parseInt(val.replace(/\D/g,'')) }
+			var responses = form.getResponses().map(function(res,i) {
+				var out = {};
+				Object.keys(items).reduce(function (acc, key) {
+					itemResponse = res.getResponseForItem(items[key])
+					out[key] = itemResponse && itemResponse.getResponse();
+				});
+				out.timestamp        = res.getTimestamp();
+				out.email            = res.getRespondentEmail();
+				out.tShirt           = out.tShirt && out.tShirt.replace(/\(.*\)/,'');
+				out.maxRegistrations = toInt(out.maxRegistrations)
+				out.borrowBow        = toBool(out.borrowBow);
+				out.borrowOR         = toBool(out.borrowOR);
+				out.borrowCompound   = toBool(out.borrowCompound);
+				// Create ordered waitlist
+				out.waitlist = out.preferredSession ? [out.preferredSession] else [];
+				var selectedSessions = {};
+				for (var i in out.allSessions)
+					selectedSessions[out.allSessions[i]] = true;
+				if (out.preferredSession) selectedSessions[out.preferredSession] = true;
+				Object.assign(sessions, selectedSessions); // Update session labels collections
+				delete selectedSessions[out.preferredSession];
+				out.waitlist = out.waitlist.concat(Object.keys(waitlist));
+				return out;
+			});
+			return [responses, Object.keys(sessions)];
+		}
+		return false;
+	}
+	function runFordFulkerson() {
+		// Get signup form responses
+		var [signups, sessions] = getSignupsAndSessions();
+		// Add membership info
+		var membershipByStudentId = Membership.byStudentId();
+		var attendanceByStudentId = Membership.attendanceByStudentId();
+		for (var i in signups) {
+			var studentId = signups[i].studentId;
+			var payment = membershipByStudentId[studentId]['Payment'];
+			signups[i].isMember = (/\$100/.test(payment) || /winter/i.test(payment));
+			signups[i].attendance = attendanceByStudentId[studentId];
+		}
+		/* Ford Fulkerson code uses the following:
+			sessions is an array of objects: {
+				name: string (arbitrary)
+			}
+			users is an array of objects {
+				name: string (arbitrary)
+				data: {
+					waitlist: [array of strings matching sessions[i].name]
+					maxRegistrations : int
+					borrowBow      : bool
+					borrowRightBow : bool
+					borrowLeftBow  : bool
+					timestamp: date of when weekly signup form was submitted
+					isMember: bool
+				}
+			}
+		*/
+		// Convert sessions to objects for Ford Fulkerson
+		sessions = sessions.map(function (val) {
+			return {name: label};
+		});
+		// Convert signups to 'users' for Ford Fulkerson
+		var users = signups.map(function (val) {
+			return {name: val.name, data: val};
+		});
+		// Run Ford Fulkerson algorithm to achieve max flow
+		var net = new ResidualNetwork(sessions, signups);
+		net.fordFulkerson(); // net.users[i].data is signups[i]
+		return net;
 	}
 
 	/* EXPOSED FUNCTIONS */
@@ -157,6 +258,7 @@ var ClubShoot = {};
 		// Return
 		return form;
 	}
+	// Search in Spreadsheet for any scheduled dates in range, return date strings
 	ClubShoot.getScheduledDateStrings = function (from, until) {
 	  var spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
 	  var sheet = spreadsheet.getSheets()[0];
@@ -171,6 +273,7 @@ var ClubShoot = {};
 	  }
 	  return dateStrings;
 	}
+	// Close the signup form, update status
 	ClubShoot.closeForm = function () {
 		var form = getForm();
 		if (form) {
@@ -180,35 +283,14 @@ var ClubShoot = {};
 		return !!form;
 	}
 	ClubShoot.createRoster = function () {
-		// Get signup form responses
-		/*
-			sessions is an array of objects: {
-				name: string (arbitrary)
-			}
-			users is an array of objects {
-				name: string (arbitrary)
-				data: {
-					waitlist: [array of strings matching sessions[i].name]
-					maxRegistrations : int
-					borrowBow      : bool
-					borrowRightBow : bool
-					borrowLeftBow  : bool
-					timestamp: date of when weekly signup form was submitted
-					isMember: bool
-				}
-			}
-		*/
-		var [signups, sessions] = Lesson.Form.getSignupsAndSessions(); // todo
-		// Get member info
-		var b2hInfo = Membership.updateB2H(); // todo
-		var paymentInfo = Membership.getPaymentInfo(); // todo
-		var attendanceInfo = Membership.incrementAttendanceFromRoster(); // todo
-		// Run Ford Fulkerson algorithm to achieve max flow
-		var net = new ResidualNetwork(sessions, signups); // todo
-		net.fordFulkerson(); // net.users[i].data is signups[i] // todo
-		// Write to roster sheet
-		// todo
+		var net = runFordFulkerson(); // net.users[i].data is signups[i]
+		// Build matrix of rows for spreadsheet
+		function userToRow(data) { // todo
+			var row = [];
+			row.append(''); // attendance
 
+		}
+		// todo
 	}
 
 })();
