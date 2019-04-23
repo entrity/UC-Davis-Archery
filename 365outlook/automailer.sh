@@ -18,9 +18,10 @@ function build ()
 	echo -n >"$TMPMUTT"
 	while read -r line; do
 		read -r quottoaddr quotbody < <(sed -e 's/^.* -- //' -e 's/ *<<< */\t/'  <<< "$line")
+		name=$( grep -oP '(?<=Dear )[^,]+' <<< "$line"  )
 		toaddr=${quottoaddr//\"/}
 		body=${quotbody//\"/}
-		>>"$TMPMUTT" echo "REPLYTO=ucdaggiearchery@ucdavis.edu mutt -F \"$MUTTRC\" -s 'Archery reservations for you this week' -- \"$toaddr\" <<< \"$body\""
+		>>"$TMPMUTT" echo "REPLYTO=ucdaggiearchery@ucdavis.edu mutt -F \"$MUTTRC\" -s 'Archery reservations for $name this week' -- \"$toaddr\" <<< \"$body\""
 	done < <(extract "$FIN" | tr $'\n' ' ' | sed -e 's/ \+/ /g' -e 's/$/\n/' -e 's/REPLYTO/\nREPLYTO/g' )
 }
 
