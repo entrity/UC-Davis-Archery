@@ -59,7 +59,7 @@ if [[ $BASH_SOURCE == $0 ]]; then
 	while read -r line; do
 		echo "$line" >> "$TMP"
 		echo "$line" >> /tmp/tmp.txt
-		run "$TMP"
 	done
+	run "$TMP"
 
 fi
